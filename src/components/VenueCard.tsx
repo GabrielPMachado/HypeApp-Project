@@ -14,7 +14,7 @@ import { getAggregateRating, getOverallRating } from "@/utils/rating";
 import { getAggregateVibeTags } from "@/utils/vibeTags";
 
 export function VenueCard({ venue }: { venue: Venue }) {
-  const hypeStatus = getCurrentHypeStatus(venue.reviews);
+  const hypeStatus = getCurrentHypeStatus(venue.hypeReports);
   const aggregateRating = getAggregateRating(venue.reviews);
   const vibeTags = getAggregateVibeTags(venue);
 
@@ -37,7 +37,7 @@ export function VenueCard({ venue }: { venue: Venue }) {
         {hypeStatus ? (
           <HypeBadge level={hypeStatus.level} />
         ) : (
-          <Text style={styles.noStatus}>Sem avaliações ainda</Text>
+          <Text style={styles.noStatus}>Ainda sem status de hype</Text>
         )}
 
         <View style={styles.tagsRow}>
@@ -67,17 +67,17 @@ export function VenueCard({ venue }: { venue: Venue }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceRaised,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.22)",
     padding: 18,
     gap: 10,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 8,
   },
   cardPressed: {
     opacity: 0.85,

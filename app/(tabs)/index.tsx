@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: 20,
-    gap: 16,
+    gap: 20,
   },
   emptyState: {
     flex: 1,
