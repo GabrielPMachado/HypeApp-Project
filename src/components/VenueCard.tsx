@@ -22,7 +22,12 @@ export function VenueCard({ venue }: { venue: Venue }) {
     <Link href={{ pathname: "/venue/[id]", params: { id: venue.id } }} asChild>
       <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
         <View style={styles.headerRow}>
-          <VenueAvatar name={venue.name} logoUrl={venue.logoUrl} size={52} />
+          <VenueAvatar
+            name={venue.name}
+            logoUrl={venue.logoUrl}
+            vibeTag={venue.vibeTags[0]}
+            size={52}
+          />
 
           <Text style={styles.name} numberOfLines={1}>
             {venue.name}

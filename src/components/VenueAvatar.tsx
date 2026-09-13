@@ -1,7 +1,10 @@
+import { Feather } from "@expo/vector-icons";
 import { Image, StyleSheet, Text, View } from "react-native";
 
+import { VIBE_TAG_ICONS } from "@/constants/vibeTags";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
+import type { VibeTag } from "@/types/venue";
 
 // Paleta de identidade só pra distinguir os avatares entre si — tons
 // dessaturados, coerentes com a paleta "dark premium" do app.
@@ -26,15 +29,18 @@ function getInitials(name: string): string {
 interface VenueAvatarProps {
   name: string;
   logoUrl?: string;
+  vibeTag?: VibeTag;
   size?: number;
 }
 
-// Mostra a foto real do bar quando existir (logoUrl); enquanto não temos
-// esse dado (upload via Firebase Storage é próxima etapa), cai pra um
-// card de iniciais com cor determinística — nunca genérico/vazio.
-// Formato quadrado arredondado (não círculo) de propósito: lê como foto
-// de local, não como avatar de perfil de usuário.
-export function VenueAvatar({ name, logoUrl, size = 44 }: VenueAvatarProps) {
+// Mostra a foto real do bar quando existir (logoUrl) — hoje nenhum local
+// tem, porque isso exigiria upload próprio ou uma API com licença pra
+// servir fotos (ex: Google Places); não podemos usar fotos/logos reais
+// de terceiros sem autorização. Enquanto isso, cai numa "marca" gerada:
+// ícone da vibe do local (ver VIBE_TAG_ICONS) como marca d'água atrás
+// das iniciais, num quadrado arredondado — lê como identidade visual do
+// local, não como avatar de usuário nem como foto de verdade.
+export function VenueAvatar({ name, logoUrl, vibeTag, size = 44 }: VenueAvatarProps) {
   const dimensionStyle = { width: size, height: size, borderRadius: size * 0.28 };
 
   if (logoUrl) {
@@ -42,6 +48,7 @@ export function VenueAvatar({ name, logoUrl, size = 44 }: VenueAvatarProps) {
   }
 
   const tone = AVATAR_PALETTE[hashString(name) % AVATAR_PALETTE.length];
+  const iconName = vibeTag ? VIBE_TAG_ICONS[vibeTag] : "map-pin";
 
   return (
     <View
@@ -51,7 +58,13 @@ export function VenueAvatar({ name, logoUrl, size = 44 }: VenueAvatarProps) {
         { backgroundColor: `${tone}33`, borderColor: `${tone}55` },
       ]}
     >
-      <Text style={[styles.initials, { color: tone, fontSize: size * 0.36 }]}>
+      <Feather
+        name={iconName}
+        size={size * 0.62}
+        color={`${tone}55`}
+        style={styles.watermark}
+      />
+      <Text style={[styles.initials, { color: tone, fontSize: size * 0.34 }]}>
         {getInitials(name)}
       </Text>
     </View>
@@ -67,6 +80,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: "hidden",
+  },
+  watermark: {
+    position: "absolute",
   },
   initials: {
     fontFamily: fontFamily.display,
