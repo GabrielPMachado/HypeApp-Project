@@ -21,10 +21,18 @@ export interface Rating {
   ambiance: number;
 }
 
+// Cada avaliação da comunidade registra, de uma vez só: como está o local
+// agora (hypeLevel), a nota por critério, as características percebidas
+// (vibeTags) e um comentário — tudo feito no mesmo fluxo ("Fazer
+// avaliação"). O nível de hype exibido no app é derivado da MÉDIA das
+// avaliações recentes (ver getCurrentHypeStatus em src/utils/hype.ts),
+// não um valor fixo.
 export interface Review {
   id: string;
   authorName: string;
-  rating: Rating; // nota por critério (música, preço, atendimento, ambiente)
+  hypeLevel: HypeLevel;
+  rating: Rating;
+  vibeTags: VibeTag[];
   comment: string;
   createdAt: string; // ISO timestamp
 }
@@ -38,9 +46,9 @@ export interface Venue {
   openingHours: string;
   latitude: number;
   longitude: number;
-  hypeLevel: HypeLevel;
-  hypeScore: number; // "Nota do Hype", 0-10 — energia atual, em tempo real
-  vibeTags: VibeTag[];
-  reviews: Review[]; // a avaliação de qualidade é derivada destes (ver getAggregateRating)
+  hypeScore: number; // "Nota do Hype", 0-10 — energia geral (ainda mock/fixa)
+  vibeTags: VibeTag[]; // características "seed" do local, antes de qualquer avaliação
+  logoUrl?: string; // quando ainda não há logo real, a UI cai pra um avatar com iniciais
+  reviews: Review[]; // hype atual e nota de qualidade são derivados destes
   updatedAt: string; // ISO timestamp da última atualização colaborativa
 }

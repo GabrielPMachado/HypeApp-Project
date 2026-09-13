@@ -10,15 +10,20 @@ import { PremiumTeaser } from "@/components/PremiumTeaser";
 import { RatingBreakdown } from "@/components/RatingBreakdown";
 import { RatingStars } from "@/components/RatingStars";
 import { ReviewItem } from "@/components/ReviewItem";
+import { VenueAvatar } from "@/components/VenueAvatar";
 import { VenueLocationMap } from "@/components/VenueLocationMap";
+import { VIBE_TAG_LABELS } from "@/constants/vibeTags";
 import { useVenues } from "@/context/VenuesContext";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
+import { getCurrentHypeStatus } from "@/utils/hype";
 import { getAggregateRating, getOverallRating } from "@/utils/rating";
+import { formatRelativeTime } from "@/utils/time";
+import { getAggregateVibeTags } from "@/utils/vibeTags";
 
 export default function VenueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { venues, updateHypeLevel, addReview } = useVenues();
+  const { venues, addReview } = useVenues();
   const [isEvaluationOpen, setEvaluationOpen] = useState(false);
 
   const venue = venues.find((v) => v.id === id);
@@ -32,7 +37,9 @@ export default function VenueDetailScreen() {
     );
   }
 
+  const hypeStatus = getCurrentHypeStatus(venue.reviews);
   const aggregateRating = getAggregateRating(venue.reviews);
+  const vibeTags = getAggregateVibeTags(venue);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -49,8 +56,13 @@ export default function VenueDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.name}>{venue.name}</Text>
-        <Text style={styles.address}>{venue.address}</Text>
+        <View style={styles.identityRow}>
+          <VenueAvatar name={venue.name} logoUrl={venue.logoUrl} size={56} />
+          <View style={styles.identityText}>
+            <Text style={styles.name}>{venue.name}</Text>
+            <Text style={styles.address}>{venue.address}</Text>
+          </View>
+        </View>
 
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
@@ -63,13 +75,35 @@ export default function VenueDetailScreen() {
           </View>
         </View>
 
+        <View style={styles.tagsRow}>
+          {vibeTags.map((tag) => (
+            <View key={tag} style={styles.tag}>
+              <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
+            </View>
+          ))}
+        </View>
+
         <View style={styles.hypeRow}>
-          <HypeBadge level={venue.hypeLevel} />
+          {hypeStatus ? (
+            <HypeBadge level={hypeStatus.level} />
+          ) : (
+            <Text style={styles.noStatus}>Sem avaliações ainda</Text>
+          )}
           <View style={styles.hypeScorePill}>
             <Feather name="zap" size={12} color={colors.accent} />
             <Text style={styles.hypeScoreText}>{venue.hypeScore.toFixed(1)} hype agora</Text>
           </View>
         </View>
+
+        {hypeStatus && (
+          <Text style={styles.hypeMeta}>
+            {hypeStatus.isRecent
+              ? `Média de ${hypeStatus.sampleSize} ${
+                  hypeStatus.sampleSize === 1 ? "avaliação" : "avaliações"
+                } nos últimos 30 min`
+              : `Baseado na última atualização, ${formatRelativeTime(hypeStatus.lastReportAt)}`}
+          </Text>
+        )}
 
         <VenueLocationMap
           latitude={venue.latitude}
@@ -134,11 +168,16 @@ export default function VenueDetailScreen() {
       <EvaluationModal
         visible={isEvaluationOpen}
         venueName={venue.name}
-        currentHypeLevel={venue.hypeLevel}
+        currentHypeLevel={hypeStatus?.level ?? "medium"}
         onClose={() => setEvaluationOpen(false)}
-        onSubmit={({ hypeLevel, rating, comment }) => {
-          updateHypeLevel(venue.id, hypeLevel);
-          addReview(venue.id, { authorName: "Você", rating, comment });
+        onSubmit={({ hypeLevel, rating, vibeTags: selectedTags, comment }) => {
+          addReview(venue.id, {
+            authorName: "Você",
+            hypeLevel,
+            rating,
+            vibeTags: selectedTags,
+            comment,
+          });
           setEvaluationOpen(false);
         }}
       />
@@ -175,8 +214,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 40,
   },
+  identityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  identityText: {
+    flex: 1,
+    gap: 2,
+  },
   name: {
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: fontFamily.display,
     color: colors.text,
   },
@@ -199,11 +247,36 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.body,
     color: colors.textMuted,
   },
+  tagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  tag: {
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  tagText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bodyMedium,
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
   hypeRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     marginTop: 4,
+  },
+  noStatus: {
+    fontSize: 12,
+    fontFamily: fontFamily.body,
+    color: colors.textFaint,
+    fontStyle: "italic",
   },
   hypeScorePill: {
     flexDirection: "row",
@@ -218,6 +291,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fontFamily.bodySemiBold,
     color: colors.accent,
+  },
+  hypeMeta: {
+    fontSize: 11,
+    fontFamily: fontFamily.body,
+    color: colors.textFaint,
+    marginTop: -8,
   },
   evaluateButton: {
     flexDirection: "row",

@@ -1,11 +1,10 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
 import { mockVenues } from "@/data/mockVenues";
-import type { HypeLevel, Review, Venue } from "@/types/venue";
+import type { Review, Venue } from "@/types/venue";
 
 interface VenuesContextValue {
   venues: Venue[];
-  updateHypeLevel: (id: string, hypeLevel: HypeLevel) => void;
   addReview: (id: string, review: Omit<Review, "id" | "createdAt">) => void;
 }
 
@@ -14,18 +13,12 @@ const VenuesContext = createContext<VenuesContextValue | undefined>(undefined);
 // Provider único da lista de locais. Hoje serve dados mockados; quando o
 // Firebase entrar, só o "miolo" (o useState/fetch) precisa mudar — os
 // componentes que consomem useVenues() continuam iguais.
+//
+// Cada avaliação (addReview) já carrega o status de hype escolhido pelo
+// usuário, a nota por critério e as características marcadas — tudo em
+// um só registro. O hype exibido é derivado disso (ver src/utils/hype.ts).
 export function VenuesProvider({ children }: { children: ReactNode }) {
   const [venues, setVenues] = useState<Venue[]>(mockVenues);
-
-  const updateHypeLevel = (id: string, hypeLevel: HypeLevel) => {
-    setVenues((prev) =>
-      prev.map((venue) =>
-        venue.id === id
-          ? { ...venue, hypeLevel, updatedAt: new Date().toISOString() }
-          : venue
-      )
-    );
-  };
 
   const addReview = (id: string, review: Omit<Review, "id" | "createdAt">) => {
     const newReview: Review = {
@@ -40,7 +33,7 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const value = useMemo(() => ({ venues, updateHypeLevel, addReview }), [venues]);
+  const value = useMemo(() => ({ venues, addReview }), [venues]);
 
   return <VenuesContext.Provider value={value}>{children}</VenuesContext.Provider>;
 }

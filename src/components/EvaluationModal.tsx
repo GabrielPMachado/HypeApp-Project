@@ -4,9 +4,10 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 
 import { RatingStars } from "@/components/RatingStars";
 import { StatusSegmentedControl } from "@/components/StatusSegmentedControl";
+import { ALL_VIBE_TAGS, VIBE_TAG_LABELS } from "@/constants/vibeTags";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
-import type { HypeLevel, Rating } from "@/types/venue";
+import type { HypeLevel, Rating, VibeTag } from "@/types/venue";
 
 const CRITERIA: { key: keyof Rating; label: string }[] = [
   { key: "music", label: "Música" },
@@ -22,12 +23,17 @@ interface EvaluationModalProps {
   venueName: string;
   currentHypeLevel: HypeLevel;
   onClose: () => void;
-  onSubmit: (data: { hypeLevel: HypeLevel; rating: Rating; comment: string }) => void;
+  onSubmit: (data: {
+    hypeLevel: HypeLevel;
+    rating: Rating;
+    vibeTags: VibeTag[];
+    comment: string;
+  }) => void;
 }
 
 // Fluxo único de avaliação: como está o local agora (hype) + nota por
-// critério de qualidade + comentário. Substitui os botões soltos de
-// status que existiam no card da lista.
+// critério de qualidade + características percebidas + comentário.
+// Tudo vira um só registro (ver VenuesContext.addReview).
 export function EvaluationModal({
   visible,
   venueName,
@@ -37,6 +43,7 @@ export function EvaluationModal({
 }: EvaluationModalProps) {
   const [hypeLevel, setHypeLevel] = useState<HypeLevel>(currentHypeLevel);
   const [rating, setRating] = useState<Rating>(EMPTY_RATING);
+  const [vibeTags, setVibeTags] = useState<VibeTag[]>([]);
   const [comment, setComment] = useState("");
 
   const canSubmit = CRITERIA.every(({ key }) => rating[key] > 0);
@@ -44,6 +51,7 @@ export function EvaluationModal({
   const reset = () => {
     setHypeLevel(currentHypeLevel);
     setRating(EMPTY_RATING);
+    setVibeTags([]);
     setComment("");
   };
 
@@ -52,9 +60,13 @@ export function EvaluationModal({
     onClose();
   };
 
+  const toggleVibeTag = (tag: VibeTag) => {
+    setVibeTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  };
+
   const handleSubmit = () => {
     if (!canSubmit) return;
-    onSubmit({ hypeLevel, rating, comment: comment.trim() });
+    onSubmit({ hypeLevel, rating, vibeTags, comment: comment.trim() });
     reset();
   };
 
@@ -92,6 +104,28 @@ export function EvaluationModal({
                   />
                 </View>
               ))}
+            </View>
+
+            <Text style={[styles.sectionLabel, styles.spaced]}>Como é o rolê?</Text>
+            <View style={styles.tagsGrid}>
+              {ALL_VIBE_TAGS.map((tag) => {
+                const isSelected = vibeTags.includes(tag);
+                return (
+                  <Pressable
+                    key={tag}
+                    onPress={() => toggleVibeTag(tag)}
+                    style={({ pressed }) => [
+                      styles.tagChip,
+                      isSelected && styles.tagChipSelected,
+                      pressed && styles.tagChipPressed,
+                    ]}
+                  >
+                    <Text style={[styles.tagChipText, isSelected && styles.tagChipTextSelected]}>
+                      {VIBE_TAG_LABELS[tag]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
 
             <Text style={[styles.sectionLabel, styles.spaced]}>Comentário (opcional)</Text>
@@ -189,6 +223,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.body,
     color: colors.text,
+  },
+  tagsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  tagChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  tagChipSelected: {
+    backgroundColor: colors.accentMuted,
+    borderColor: colors.accent,
+  },
+  tagChipPressed: {
+    opacity: 0.7,
+  },
+  tagChipText: {
+    fontSize: 12,
+    fontFamily: fontFamily.bodyMedium,
+    color: colors.textMuted,
+  },
+  tagChipTextSelected: {
+    color: colors.accent,
   },
   input: {
     minHeight: 64,

@@ -4,6 +4,15 @@ import type { Venue } from "@/types/venue";
 // Firebase. Coordenadas aproximadas da região da Cidade Baixa (Porto
 // Alegre), mas nomes, endereços e reviews são inventados — não
 // representam parceiros reais.
+//
+// O hype exibido é a MÉDIA das avaliações dos últimos 30 minutos (ver
+// getCurrentHypeStatus em src/utils/hype.ts), por isso os timestamps
+// abaixo variam de propósito: dá pra ver o cálculo em ação —
+// "Bar do Zé" tem 2 avaliações recentes concordando (fica "Lotado");
+// "Espaço Beco" tem uma avaliação antiga e uma recente, e a recente
+// prevalece; "Casa Amarela" só tem avaliação de mais de 30 min atrás,
+// então cai no fallback "baseado na última atualização"; "Bendito Bar"
+// ainda não tem nenhuma avaliação, pra testar o estado vazio.
 export const mockVenues: Venue[] = [
   {
     id: "1",
@@ -14,23 +23,26 @@ export const mockVenues: Venue[] = [
     openingHours: "Ter a Dom, 18h às 02h",
     latitude: -30.0407,
     longitude: -51.2247,
-    hypeLevel: "high",
     hypeScore: 9.2,
     vibeTags: ["samba", "para-dancar"],
     reviews: [
       {
         id: "r1",
         authorName: "Marina T.",
+        hypeLevel: "high",
         rating: { music: 5, price: 4, service: 3.5, ambiance: 4.5 },
+        vibeTags: ["samba", "para-dancar"],
         comment: "Roda de samba impecável, mas chega cedo que enche rápido.",
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+        createdAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
       },
       {
         id: "r2",
         authorName: "Diego S.",
+        hypeLevel: "high",
         rating: { music: 4, price: 4, service: 3, ambiance: 4.5 },
+        vibeTags: ["samba"],
         comment: "Atendimento podia ser mais rápido, mas a vibe compensa.",
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
+        createdAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
       },
     ],
     updatedAt: new Date().toISOString(),
@@ -44,16 +56,17 @@ export const mockVenues: Venue[] = [
     openingHours: "Qui a Sáb, 19h às 03h",
     latitude: -30.0398,
     longitude: -51.2231,
-    hypeLevel: "medium",
     hypeScore: 7.1,
     vibeTags: ["rock", "para-conversar"],
     reviews: [
       {
         id: "r3",
         authorName: "Bruno L.",
+        hypeLevel: "medium",
         rating: { music: 4.5, price: 3.5, service: 4, ambiance: 3.5 },
+        vibeTags: ["rock", "para-conversar"],
         comment: "Banda cover de rock muito boa, som bem equilibrado.",
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+        createdAt: new Date(Date.now() - 1000 * 60 * 22).toISOString(),
       },
     ],
     updatedAt: new Date().toISOString(),
@@ -67,16 +80,26 @@ export const mockVenues: Venue[] = [
     openingHours: "Sex e Sáb, 22h às 05h",
     latitude: -30.0415,
     longitude: -51.226,
-    hypeLevel: "low",
     hypeScore: 4.5,
     vibeTags: ["eletronica"],
     reviews: [
       {
         id: "r4",
         authorName: "Carla M.",
+        hypeLevel: "low",
         rating: { music: 4.5, price: 2, service: 3, ambiance: 4 },
+        vibeTags: ["eletronica"],
         comment: "Line-up ótimo, mas preço da bebida pesa no bolso.",
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 40).toISOString(),
+        createdAt: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
+      },
+      {
+        id: "r4b",
+        authorName: "Yuri P.",
+        hypeLevel: "medium",
+        rating: { music: 4, price: 2.5, service: 3, ambiance: 4 },
+        vibeTags: ["eletronica"],
+        comment: "Hoje tá mais tranquilo, dá pra conversar sem gritar.",
+        createdAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
       },
     ],
     updatedAt: new Date().toISOString(),
@@ -90,7 +113,6 @@ export const mockVenues: Venue[] = [
     openingHours: "Seg a Dom, 17h às 00h",
     latitude: -30.0389,
     longitude: -51.2219,
-    hypeLevel: "high",
     hypeScore: 8.7,
     vibeTags: ["samba", "para-conversar"],
     reviews: [],
@@ -105,16 +127,17 @@ export const mockVenues: Venue[] = [
     openingHours: "Qua a Sáb, 18h às 02h",
     latitude: -30.042,
     longitude: -51.2273,
-    hypeLevel: "medium",
     hypeScore: 6.4,
     vibeTags: ["rock", "eletronica", "para-dancar"],
     reviews: [
       {
         id: "r5",
         authorName: "Felipe R.",
+        hypeLevel: "medium",
         rating: { music: 4, price: 3.5, service: 3.5, ambiance: 4.5 },
+        vibeTags: ["rock", "eletronica"],
         comment: "Ambiente super versátil, agrada quem quer dançar e quem quer sentar.",
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 10).toISOString(),
+        createdAt: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
       },
     ],
     updatedAt: new Date().toISOString(),
