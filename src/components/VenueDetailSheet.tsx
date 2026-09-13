@@ -50,6 +50,10 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
   const [isEvaluationOpen, setEvaluationOpen] = useState(false);
 
   const translateY = useRef(new Animated.Value(0)).current;
+  // Posição atual do scroll do conteúdo — só vira gesto de fechar a
+  // folha quando ela estiver zerada (conteúdo já no topo). Fica numa
+  // ref (não state) pra não causar re-render a cada pixel rolado.
+  const scrollY = useRef(0);
 
   // onClose pode ser um novo arrow function a cada render do pai; a ref
   // garante que o PanResponder (criado uma vez só) sempre chame a
@@ -65,31 +69,51 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
     if (visible) translateY.setValue(0);
   }, [visible, translateY]);
 
-  const panResponder = useRef(
+  const handleGestureRelease = (gesture: { dy: number; vy: number }) => {
+    const shouldDismiss = gesture.dy > DRAG_DISMISS_DISTANCE || gesture.vy > DRAG_DISMISS_VELOCITY;
+
+    if (shouldDismiss) {
+      Animated.timing(translateY, {
+        toValue: SHEET_EXIT_DISTANCE,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => onCloseRef.current());
+    } else {
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        bounciness: 4,
+      }).start();
+    }
+  };
+
+  // Arraste sempre ativo na área do puxador (não tem scroll ali, então
+  // não precisa checar posição nenhuma).
+  const handlePanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 6 && Math.abs(gesture.dx) < 30,
       onPanResponderMove: (_, gesture) => {
         if (gesture.dy > 0) translateY.setValue(gesture.dy);
       },
-      onPanResponderRelease: (_, gesture) => {
-        const shouldDismiss =
-          gesture.dy > DRAG_DISMISS_DISTANCE || gesture.vy > DRAG_DISMISS_VELOCITY;
+      onPanResponderRelease: (_, gesture) => handleGestureRelease(gesture),
+    })
+  ).current;
 
-        if (shouldDismiss) {
-          Animated.timing(translateY, {
-            toValue: SHEET_EXIT_DISTANCE,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => onCloseRef.current());
-        } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-            bounciness: 4,
-          }).start();
-        }
+  // Arraste em qualquer ponto do conteúdo (inclusive por cima do
+  // ScrollView) — mas só "rouba" o gesto do scroll quando o conteúdo já
+  // estiver no topo (scrollY <= 0) e o dedo estiver puxando pra baixo.
+  // Usa a fase de "capture" pra interceptar antes do ScrollView decidir
+  // que o toque é dele.
+  const contentPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (_, gesture) =>
+        scrollY.current <= 0 && gesture.dy > 6 && Math.abs(gesture.dx) < 30,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderMove: (_, gesture) => {
+        if (gesture.dy > 0) translateY.setValue(gesture.dy);
       },
+      onPanResponderRelease: (_, gesture) => handleGestureRelease(gesture),
     })
   ).current;
 
@@ -131,14 +155,22 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
           <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
-            <View style={styles.dragZone} {...panResponder.panHandlers}>
+            <View style={styles.dragZone} {...handlePanResponder.panHandlers}>
               <View style={styles.handle} />
             </View>
             <Pressable onPress={onClose} style={styles.closeButton} hitSlop={8}>
               <Feather name="x" size={18} color={colors.text} />
             </Pressable>
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <View style={styles.scrollWrap} {...contentPanResponder.panHandlers}>
+              <ScrollView
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+                onScroll={(event) => {
+                  scrollY.current = event.nativeEvent.contentOffset.y;
+                }}
+                scrollEventThrottle={16}
+              >
               <View style={styles.headerBlock}>
                 <View style={styles.identityRow}>
                   <Pressable onPress={pickLogo} style={styles.avatarWrap}>
@@ -271,6 +303,7 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
                 )}
               </View>
             </ScrollView>
+            </View>
           </Animated.View>
         </View>
       </Modal>
@@ -341,6 +374,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
+  },
+  scrollWrap: {
+    flex: 1,
   },
   content: {
     padding: 20,
