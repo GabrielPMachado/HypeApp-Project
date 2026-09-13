@@ -47,14 +47,51 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
   const [isHypeModalOpen, setHypeModalOpen] = useState(false);
   const [isEvaluationOpen, setEvaluationOpen] = useState(false);
   const sheetRef = useRef<BottomSheetModal>(null);
+  // Rastreia se a folha está (ou achamos que está) no meio da animação
+  // de fechamento. Chamar present() enquanto um dismiss() anterior
+  // ainda está animando deixa a biblioteca num estado inconsistente
+  // (folha "presa" fechada) — bug conhecido do @gorhom/bottom-sheet com
+  // chamadas programáticas de dismiss()/present() em sucessão rápida.
+  // Pior: o próprio onDismiss não é confiável quando o fechamento foi
+  // programático (só dispara de forma consistente em gesto do usuário,
+  // testado e confirmado), então não dá pra depender dele sozinho —
+  // usamos um tempo fixo de segurança como sinal de "já deve ter
+  // terminado", e o onDismiss só adianta esse sinal quando ele dispara.
+  const isClosingRef = useRef(false);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const CLOSE_ANIMATION_MS = 350;
 
+  // Reage tanto a "visible" quanto a "venue?.id": só olhar "visible" não
+  // basta, porque clicar num card com a folha ainda aberta (fechando um
+  // local e abrindo outro em seguida) não muda visible (já era true),
+  // então o efeito nunca disparava de novo e a folha ficava presa.
   useEffect(() => {
-    if (visible) {
-      sheetRef.current?.present();
-    } else {
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+
+    if (!visible) {
+      isClosingRef.current = true;
       sheetRef.current?.dismiss();
+      // Libera o "trava" de fechamento depois de um tempo seguro, já
+      // que não podemos confiar só no onDismiss pra isso.
+      closeTimeoutRef.current = setTimeout(() => {
+        isClosingRef.current = false;
+      }, CLOSE_ANIMATION_MS);
+      return;
     }
-  }, [visible]);
+
+    if (!isClosingRef.current) {
+      sheetRef.current?.present();
+      return;
+    }
+
+    // Ainda dentro da janela de segurança do fechamento anterior: espera
+    // o restante antes de tentar abrir, pra não pegar a biblioteca no
+    // meio da animação de saída.
+    closeTimeoutRef.current = setTimeout(() => {
+      isClosingRef.current = false;
+      sheetRef.current?.present();
+    }, CLOSE_ANIMATION_MS);
+  }, [visible, venue?.id]);
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
@@ -113,7 +150,7 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
         handleIndicatorStyle={styles.handleIndicator}
       >
         <Pressable
-          onPress={() => sheetRef.current?.dismiss()}
+          onPress={onClose}
           style={styles.closeButton}
           hitSlop={8}
         >
