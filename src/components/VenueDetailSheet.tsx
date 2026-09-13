@@ -1,17 +1,13 @@
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetScrollView,
+  type BottomSheetBackdropProps,
+} from "@gorhom/bottom-sheet";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { useEffect, useRef, useState } from "react";
-import {
-  Alert,
-  Animated,
-  Modal,
-  PanResponder,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, Pressable, Text, View, StyleSheet } from "react-native";
 
 import { EvaluationModal } from "@/components/EvaluationModal";
 import { HypeBadge } from "@/components/HypeBadge";
@@ -37,85 +33,41 @@ interface VenueDetailSheetProps {
   onClose: () => void;
 }
 
-const DRAG_DISMISS_DISTANCE = 120; // arrastou mais que isso, solta e fecha
-const DRAG_DISMISS_VELOCITY = 0.8; // ou arrastou rápido o suficiente
-const SHEET_EXIT_DISTANCE = 800; // bem maior que qualquer altura de tela real
+const SNAP_POINTS = ["92%"];
 
 // Detalhe do bar como uma "folha" que sobe de baixo e fica por cima da
-// lista (não navega pra outra tela) — a lista continua ali embaixo,
-// visível ao redor, e um toque fora ou no X fecha e volta pra ela.
+// lista (não navega pra outra tela). Usa @gorhom/bottom-sheet (com
+// react-native-gesture-handler por baixo) em vez de Modal + PanResponder
+// caseiro: arrastar-pra-fechar disputando toque com um ScrollView é um
+// problema conhecido de coordenação nativa, e essa biblioteca é feita
+// especificamente pra resolver isso nas duas plataformas — arraste de
+// qualquer ponto do conteúdo, só fecha quando o scroll já estiver no topo.
 export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetProps) {
   const { addHypeReport, addReview, setVenueLogo } = useVenues();
   const [isHypeModalOpen, setHypeModalOpen] = useState(false);
   const [isEvaluationOpen, setEvaluationOpen] = useState(false);
+  const sheetRef = useRef<BottomSheetModal>(null);
 
-  const translateY = useRef(new Animated.Value(0)).current;
-  // Posição atual do scroll do conteúdo — só vira gesto de fechar a
-  // folha quando ela estiver zerada (conteúdo já no topo). Fica numa
-  // ref (não state) pra não causar re-render a cada pixel rolado.
-  const scrollY = useRef(0);
-
-  // onClose pode ser um novo arrow function a cada render do pai; a ref
-  // garante que o PanResponder (criado uma vez só) sempre chame a
-  // versão mais recente, sem precisar recriar o gesture handler.
-  const onCloseRef = useRef(onClose);
   useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  // Toda vez que a folha reabre, garante que ela comece na posição
-  // normal (caso a última interação tenha sido um arraste incompleto).
-  useEffect(() => {
-    if (visible) translateY.setValue(0);
-  }, [visible, translateY]);
-
-  const handleGestureRelease = (gesture: { dy: number; vy: number }) => {
-    const shouldDismiss = gesture.dy > DRAG_DISMISS_DISTANCE || gesture.vy > DRAG_DISMISS_VELOCITY;
-
-    if (shouldDismiss) {
-      Animated.timing(translateY, {
-        toValue: SHEET_EXIT_DISTANCE,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => onCloseRef.current());
+    if (visible) {
+      sheetRef.current?.present();
     } else {
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        bounciness: 4,
-      }).start();
+      sheetRef.current?.dismiss();
     }
-  };
+  }, [visible]);
 
-  // Arraste sempre ativo na área do puxador (não tem scroll ali, então
-  // não precisa checar posição nenhuma).
-  const handlePanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 6 && Math.abs(gesture.dx) < 30,
-      onPanResponderMove: (_, gesture) => {
-        if (gesture.dy > 0) translateY.setValue(gesture.dy);
-      },
-      onPanResponderRelease: (_, gesture) => handleGestureRelease(gesture),
-    })
-  ).current;
-
-  // Arraste em qualquer ponto do conteúdo (inclusive por cima do
-  // ScrollView) — mas só "rouba" o gesto do scroll quando o conteúdo já
-  // estiver no topo (scrollY <= 0) e o dedo estiver puxando pra baixo.
-  // Usa a fase de "capture" pra interceptar antes do ScrollView decidir
-  // que o toque é dele.
-  const contentPanResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponderCapture: (_, gesture) =>
-        scrollY.current <= 0 && gesture.dy > 6 && Math.abs(gesture.dx) < 30,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderMove: (_, gesture) => {
-        if (gesture.dy > 0) translateY.setValue(gesture.dy);
-      },
-      onPanResponderRelease: (_, gesture) => handleGestureRelease(gesture),
-    })
-  ).current;
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop
+        {...props}
+        appearsOnIndex={0}
+        disappearsOnIndex={-1}
+        opacity={0.6}
+        pressBehavior="close"
+      />
+    ),
+    []
+  );
 
   if (!venue) return null;
 
@@ -150,163 +102,161 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
 
   return (
     <>
-      <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-        <View style={styles.backdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <BottomSheetModal
+        ref={sheetRef}
+        index={0}
+        snapPoints={SNAP_POINTS}
+        enablePanDownToClose
+        onDismiss={onClose}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.handleIndicator}
+      >
+        <Pressable
+          onPress={() => sheetRef.current?.dismiss()}
+          style={styles.closeButton}
+          hitSlop={8}
+        >
+          <Feather name="x" size={18} color={colors.text} />
+        </Pressable>
 
-          <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
-            <View style={styles.dragZone} {...handlePanResponder.panHandlers}>
-              <View style={styles.handle} />
+        <BottomSheetScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.headerBlock}>
+            <View style={styles.identityRow}>
+              <Pressable onPress={pickLogo} style={styles.avatarWrap}>
+                <VenueAvatar
+                  name={venue.name}
+                  logoUrl={venue.logoUrl}
+                  vibeTag={venue.vibeTags[0]}
+                  size={56}
+                />
+                <View style={styles.avatarEditBadge}>
+                  <Feather name="camera" size={11} color={colors.background} />
+                </View>
+              </Pressable>
+              <View style={styles.identityText}>
+                <Text style={styles.name}>{venue.name}</Text>
+                <Text style={styles.address}>{venue.address}</Text>
+              </View>
             </View>
-            <Pressable onPress={onClose} style={styles.closeButton} hitSlop={8}>
-              <Feather name="x" size={18} color={colors.text} />
+
+            <View style={styles.metaRow}>
+              <View style={styles.metaItem}>
+                <Feather name="clock" size={13} color={colors.textMuted} />
+                <Text style={styles.metaText}>{venue.openingHours}</Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Feather name="dollar-sign" size={13} color={colors.textMuted} />
+                <Text style={styles.metaText}>{venue.priceRange}</Text>
+              </View>
+            </View>
+
+            <View style={styles.tagsRow}>
+              {vibeTags.map((tag) => (
+                <View key={tag} style={styles.tag}>
+                  <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.hypeBlock}>
+            <View style={styles.hypeRow}>
+              {hypeStatus ? (
+                <HypeBadge level={hypeStatus.level} />
+              ) : (
+                <Text style={styles.noStatus}>Ainda sem status de hype</Text>
+              )}
+              <View style={styles.hypeScorePill}>
+                <Feather name="zap" size={12} color={colors.accent} />
+                <Text style={styles.hypeScoreText}>{venue.hypeScore.toFixed(1)} hype agora</Text>
+              </View>
+            </View>
+
+            {hypeStatus && (
+              <Text style={styles.hypeMeta}>
+                Média de {hypeStatus.sampleSize}{" "}
+                {hypeStatus.sampleSize === 1 ? "avaliação" : "avaliações"} — janela de{" "}
+                {formatHypeWindow(hypeStatus.windowMinutes)}
+              </Text>
+            )}
+          </View>
+
+          <VenueLocationMap
+            latitude={venue.latitude}
+            longitude={venue.longitude}
+            address={venue.address}
+          />
+
+          <View style={styles.evaluateRow}>
+            <Pressable
+              onPress={() => setHypeModalOpen(true)}
+              style={({ pressed }) => [styles.hypeButton, pressed && styles.buttonPressed]}
+            >
+              <Feather name="zap" size={15} color={colors.background} />
+              <Text style={styles.hypeButtonText}>Hype agora</Text>
             </Pressable>
 
-            <View style={styles.scrollWrap} {...contentPanResponder.panHandlers}>
-              <ScrollView
-                contentContainerStyle={styles.content}
-                showsVerticalScrollIndicator={false}
-                onScroll={(event) => {
-                  scrollY.current = event.nativeEvent.contentOffset.y;
-                }}
-                scrollEventThrottle={16}
-              >
-              <View style={styles.headerBlock}>
-                <View style={styles.identityRow}>
-                  <Pressable onPress={pickLogo} style={styles.avatarWrap}>
-                    <VenueAvatar
-                      name={venue.name}
-                      logoUrl={venue.logoUrl}
-                      vibeTag={venue.vibeTags[0]}
-                      size={56}
-                    />
-                    <View style={styles.avatarEditBadge}>
-                      <Feather name="camera" size={11} color={colors.background} />
-                    </View>
-                  </Pressable>
-                  <View style={styles.identityText}>
-                    <Text style={styles.name}>{venue.name}</Text>
-                    <Text style={styles.address}>{venue.address}</Text>
-                  </View>
-                </View>
+            <Pressable
+              onPress={() => setEvaluationOpen(true)}
+              style={({ pressed }) => [styles.fixedButton, pressed && styles.buttonPressed]}
+            >
+              <Feather name="edit-3" size={15} color={colors.text} />
+              <Text style={styles.fixedButtonText}>Avaliação completa</Text>
+            </Pressable>
+          </View>
 
-                <View style={styles.metaRow}>
-                  <View style={styles.metaItem}>
-                    <Feather name="clock" size={13} color={colors.textMuted} />
-                    <Text style={styles.metaText}>{venue.openingHours}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <Feather name="dollar-sign" size={13} color={colors.textMuted} />
-                    <Text style={styles.metaText}>{venue.priceRange}</Text>
-                  </View>
-                </View>
+          <View style={styles.divider} />
 
-                <View style={styles.tagsRow}>
-                  {vibeTags.map((tag) => (
-                    <View key={tag} style={styles.tag}>
-                      <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.hypeBlock}>
-                <View style={styles.hypeRow}>
-                  {hypeStatus ? (
-                    <HypeBadge level={hypeStatus.level} />
-                  ) : (
-                    <Text style={styles.noStatus}>Ainda sem status de hype</Text>
-                  )}
-                  <View style={styles.hypeScorePill}>
-                    <Feather name="zap" size={12} color={colors.accent} />
-                    <Text style={styles.hypeScoreText}>{venue.hypeScore.toFixed(1)} hype agora</Text>
-                  </View>
-                </View>
-
-                {hypeStatus && (
-                  <Text style={styles.hypeMeta}>
-                    Média de {hypeStatus.sampleSize}{" "}
-                    {hypeStatus.sampleSize === 1 ? "avaliação" : "avaliações"} — janela de{" "}
-                    {formatHypeWindow(hypeStatus.windowMinutes)}
+          <View style={styles.section}>
+            <View style={styles.overallRow}>
+              <Text style={styles.sectionTitle}>Avaliação</Text>
+              {aggregateRating && (
+                <View style={styles.overallValue}>
+                  <RatingStars value={getOverallRating(aggregateRating)} size={15} />
+                  <Text style={styles.overallText}>
+                    {getOverallRating(aggregateRating).toFixed(1)}
                   </Text>
-                )}
-              </View>
-
-              <VenueLocationMap
-                latitude={venue.latitude}
-                longitude={venue.longitude}
-                address={venue.address}
-              />
-
-              <View style={styles.evaluateRow}>
-                <Pressable
-                  onPress={() => setHypeModalOpen(true)}
-                  style={({ pressed }) => [styles.hypeButton, pressed && styles.buttonPressed]}
-                >
-                  <Feather name="zap" size={15} color={colors.background} />
-                  <Text style={styles.hypeButtonText}>Hype agora</Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => setEvaluationOpen(true)}
-                  style={({ pressed }) => [styles.fixedButton, pressed && styles.buttonPressed]}
-                >
-                  <Feather name="edit-3" size={15} color={colors.text} />
-                  <Text style={styles.fixedButtonText}>Avaliação completa</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.section}>
-                <View style={styles.overallRow}>
-                  <Text style={styles.sectionTitle}>Avaliação</Text>
-                  {aggregateRating && (
-                    <View style={styles.overallValue}>
-                      <RatingStars value={getOverallRating(aggregateRating)} size={15} />
-                      <Text style={styles.overallText}>
-                        {getOverallRating(aggregateRating).toFixed(1)}
-                      </Text>
-                    </View>
-                  )}
                 </View>
-
-                {aggregateRating ? (
-                  <RatingBreakdown rating={aggregateRating} />
-                ) : (
-                  <Text style={styles.emptyReviews}>
-                    Ainda sem avaliações — toque em "Avaliação completa" pra ser o primeiro.
-                  </Text>
-                )}
-              </View>
-
-              <PremiumTeaser
-                title="Histórico do hype"
-                description="Veja como a energia do local variou ao longo da noite. Disponível no plano Premium."
-              />
-
-              <View style={styles.divider} />
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  Comentários {venue.reviews.length > 0 ? `(${venue.reviews.length})` : ""}
-                </Text>
-
-                {venue.reviews.length === 0 ? (
-                  <Text style={styles.emptyReviews}>Nenhum comentário ainda.</Text>
-                ) : (
-                  <View style={styles.reviewsList}>
-                    {venue.reviews.map((review) => (
-                      <ReviewItem key={review.id} review={review} />
-                    ))}
-                  </View>
-                )}
-              </View>
-            </ScrollView>
+              )}
             </View>
-          </Animated.View>
-        </View>
-      </Modal>
+
+            {aggregateRating ? (
+              <RatingBreakdown rating={aggregateRating} />
+            ) : (
+              <Text style={styles.emptyReviews}>
+                Ainda sem avaliações — toque em "Avaliação completa" pra ser o primeiro.
+              </Text>
+            )}
+          </View>
+
+          <PremiumTeaser
+            title="Histórico do hype"
+            description="Veja como a energia do local variou ao longo da noite. Disponível no plano Premium."
+          />
+
+          <View style={styles.divider} />
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Comentários {venue.reviews.length > 0 ? `(${venue.reviews.length})` : ""}
+            </Text>
+
+            {venue.reviews.length === 0 ? (
+              <Text style={styles.emptyReviews}>Nenhum comentário ainda.</Text>
+            ) : (
+              <View style={styles.reviewsList}>
+                {venue.reviews.map((review) => (
+                  <ReviewItem key={review.id} review={review} />
+                ))}
+              </View>
+            )}
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
 
       <HypeReportModal
         visible={isHypeModalOpen}
@@ -330,40 +280,22 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-  },
-  sheet: {
-    maxHeight: "92%",
-    minHeight: "60%",
+  sheetBackground: {
     backgroundColor: colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: colors.border,
     borderBottomWidth: 0,
-    paddingTop: 10,
   },
-  // Área de toque bem maior que a barrinha visível, mas só no centro —
-  // fica longe do botão de fechar (que está no canto direito), então
-  // não disputa gesto com ele.
-  dragZone: {
-    alignSelf: "center",
-    width: 140,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-  handle: {
+  handleIndicator: {
+    backgroundColor: colors.borderStrong,
     width: 36,
     height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.borderStrong,
   },
   closeButton: {
     position: "absolute",
-    top: 14,
+    top: 6,
     right: 16,
     width: 32,
     height: 32,
@@ -374,9 +306,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
-  },
-  scrollWrap: {
-    flex: 1,
   },
   content: {
     padding: 20,
