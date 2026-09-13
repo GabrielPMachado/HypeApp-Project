@@ -7,8 +7,14 @@ export const colors = {
   surfaceRaised: "#1C1C22",
   border: "rgba(255, 255, 255, 0.08)",
   borderStrong: "rgba(255, 255, 255, 0.16)",
-  cardBorder: "#4A4A56", // cor sólida (não translúcida) — usada nos cards da lista pra garantir contraste visível contra o fundo, independente de brilho/tema do aparelho
-  cardSurface: "#242430", // bem mais claro que o fundo (#0A0A0D) de propósito, pro card se destacar como bloco separado
+  // Cores dedicadas ao card da lista. Tons de cinza quase-preto (ex:
+  // #4A4A56 sobre #0A0A0D) se mostraram sutis demais na prática — a
+  // diferença é pequena o bastante pra sumir em prints/compressão e até
+  // a olho nu dependendo do brilho da tela. Usar a cor de destaque
+  // (âmbar) na borda resolve isso: contraste de cor, não só de
+  // luminância, então nunca passa despercebido.
+  cardBorder: "#E8B24D",
+  cardSurface: "#2E2E3A",
 
   text: "#F2F2F4",
   textMuted: "#9497A0",
