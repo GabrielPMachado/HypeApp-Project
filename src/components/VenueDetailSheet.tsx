@@ -1,7 +1,17 @@
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Animated,
+  Modal,
+  PanResponder,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { EvaluationModal } from "@/components/EvaluationModal";
 import { HypeBadge } from "@/components/HypeBadge";
@@ -27,6 +37,10 @@ interface VenueDetailSheetProps {
   onClose: () => void;
 }
 
+const DRAG_DISMISS_DISTANCE = 120; // arrastou mais que isso, solta e fecha
+const DRAG_DISMISS_VELOCITY = 0.8; // ou arrastou rápido o suficiente
+const SHEET_EXIT_DISTANCE = 800; // bem maior que qualquer altura de tela real
+
 // Detalhe do bar como uma "folha" que sobe de baixo e fica por cima da
 // lista (não navega pra outra tela) — a lista continua ali embaixo,
 // visível ao redor, e um toque fora ou no X fecha e volta pra ela.
@@ -34,6 +48,50 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
   const { addHypeReport, addReview, setVenueLogo } = useVenues();
   const [isHypeModalOpen, setHypeModalOpen] = useState(false);
   const [isEvaluationOpen, setEvaluationOpen] = useState(false);
+
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  // onClose pode ser um novo arrow function a cada render do pai; a ref
+  // garante que o PanResponder (criado uma vez só) sempre chame a
+  // versão mais recente, sem precisar recriar o gesture handler.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Toda vez que a folha reabre, garante que ela comece na posição
+  // normal (caso a última interação tenha sido um arraste incompleto).
+  useEffect(() => {
+    if (visible) translateY.setValue(0);
+  }, [visible, translateY]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 6 && Math.abs(gesture.dx) < 30,
+      onPanResponderMove: (_, gesture) => {
+        if (gesture.dy > 0) translateY.setValue(gesture.dy);
+      },
+      onPanResponderRelease: (_, gesture) => {
+        const shouldDismiss =
+          gesture.dy > DRAG_DISMISS_DISTANCE || gesture.vy > DRAG_DISMISS_VELOCITY;
+
+        if (shouldDismiss) {
+          Animated.timing(translateY, {
+            toValue: SHEET_EXIT_DISTANCE,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => onCloseRef.current());
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 4,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   if (!venue) return null;
 
@@ -72,8 +130,10 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
         <View style={styles.backdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
-          <View style={styles.sheet}>
-            <View style={styles.handle} />
+          <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+            <View style={styles.dragZone} {...panResponder.panHandlers}>
+              <View style={styles.handle} />
+            </View>
             <Pressable onPress={onClose} style={styles.closeButton} hitSlop={8}>
               <Feather name="x" size={18} color={colors.text} />
             </Pressable>
@@ -211,7 +271,7 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
                 )}
               </View>
             </ScrollView>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -253,13 +313,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     paddingTop: 10,
   },
-  handle: {
+  // Área de toque bem maior que a barrinha visível, mas só no centro —
+  // fica longe do botão de fechar (que está no canto direito), então
+  // não disputa gesto com ele.
+  dragZone: {
     alignSelf: "center",
+    width: 140,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.borderStrong,
-    marginBottom: 6,
   },
   closeButton: {
     position: "absolute",
