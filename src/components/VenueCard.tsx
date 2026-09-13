@@ -1,5 +1,4 @@
 import { Feather } from "@expo/vector-icons";
-import { Link } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { HypeBadge } from "@/components/HypeBadge";
@@ -13,76 +12,67 @@ import { getCurrentHypeStatus } from "@/utils/hype";
 import { getAggregateRating, getOverallRating } from "@/utils/rating";
 import { getAggregateVibeTags } from "@/utils/vibeTags";
 
-export function VenueCard({ venue }: { venue: Venue }) {
+interface VenueCardProps {
+  venue: Venue;
+  onPress: () => void;
+}
+
+export function VenueCard({ venue, onPress }: VenueCardProps) {
   const hypeStatus = getCurrentHypeStatus(venue.hypeReports);
   const aggregateRating = getAggregateRating(venue.reviews);
   const vibeTags = getAggregateVibeTags(venue);
 
   return (
-    <Link href={{ pathname: "/venue/[id]", params: { id: venue.id } }} asChild>
-      {/* IMPORTANTE: o Link (asChild) clona este Pressable pra virar um
-          <a> na web / handler de toque no nativo — nesse processo ele
-          DESCARTA a prop `style` do Pressable (confirmado inspecionando
-          o DOM: a tag <a> resultante não carregava nenhuma classe de
-          styles.card, mesmo com o código "correto"). Por isso o visual
-          do card mora numa View filha, nunca na prop `style` do próprio
-          elemento que o Link clona. O estado "pressed" vem via
-          children-como-função do Pressable, que É preservado. */}
-      <Pressable>
-        {({ pressed }) => (
-          <View style={[styles.card, pressed && styles.cardPressed]}>
-            <View style={styles.headerRow}>
-              <VenueAvatar
-                name={venue.name}
-                logoUrl={venue.logoUrl}
-                vibeTag={venue.vibeTags[0]}
-                size={52}
-              />
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+      <View style={styles.headerRow}>
+        <VenueAvatar
+          name={venue.name}
+          logoUrl={venue.logoUrl}
+          vibeTag={venue.vibeTags[0]}
+          size={52}
+        />
 
-              <Text style={styles.name} numberOfLines={1}>
-                {venue.name}
-              </Text>
+        <Text style={styles.name} numberOfLines={1}>
+          {venue.name}
+        </Text>
 
-              <View style={styles.scorePill}>
-                <Feather name="zap" size={12} color={colors.accent} />
-                <Text style={styles.scoreText}>{venue.hypeScore.toFixed(1)}</Text>
-              </View>
-            </View>
+        <View style={styles.scorePill}>
+          <Feather name="zap" size={12} color={colors.accent} />
+          <Text style={styles.scoreText}>{venue.hypeScore.toFixed(1)}</Text>
+        </View>
+      </View>
 
-            {hypeStatus ? (
-              <HypeBadge level={hypeStatus.level} />
-            ) : (
-              <Text style={styles.noStatus}>Ainda sem status de hype</Text>
-            )}
+      {hypeStatus ? (
+        <HypeBadge level={hypeStatus.level} />
+      ) : (
+        <Text style={styles.noStatus}>Ainda sem status de hype</Text>
+      )}
 
-            <View style={styles.tagsRow}>
-              {vibeTags.map((tag) => (
-                <View key={tag} style={styles.tag}>
-                  <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.footerRow}>
-              {aggregateRating ? (
-                <>
-                  <RatingStars value={getOverallRating(aggregateRating)} size={13} />
-                  <Text style={styles.footerText}>
-                    {venue.reviews.length} {venue.reviews.length === 1 ? "avaliação" : "avaliações"}
-                  </Text>
-                </>
-              ) : (
-                <Text style={styles.footerText}>Sem avaliações ainda</Text>
-              )}
-              <View style={{ flex: 1 }} />
-              <Feather name="chevron-right" size={16} color={colors.textFaint} />
-            </View>
+      <View style={styles.tagsRow}>
+        {vibeTags.map((tag) => (
+          <View key={tag} style={styles.tag}>
+            <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
           </View>
+        ))}
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.footerRow}>
+        {aggregateRating ? (
+          <>
+            <RatingStars value={getOverallRating(aggregateRating)} size={13} />
+            <Text style={styles.footerText}>
+              {venue.reviews.length} {venue.reviews.length === 1 ? "avaliação" : "avaliações"}
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.footerText}>Sem avaliações ainda</Text>
         )}
-      </Pressable>
-    </Link>
+        <View style={{ flex: 1 }} />
+        <Feather name="chevron-right" size={16} color={colors.textFaint} />
+      </View>
+    </Pressable>
   );
 }
 

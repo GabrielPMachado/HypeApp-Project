@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LocationPickerModal } from "@/components/LocationPickerModal";
 import { VenueCard } from "@/components/VenueCard";
+import { VenueDetailSheet } from "@/components/VenueDetailSheet";
 import { useLocation } from "@/context/LocationContext";
 import { useVenues } from "@/context/VenuesContext";
 import { colors } from "@/theme/colors";
@@ -14,11 +15,18 @@ export default function ListaScreen() {
   const { venues } = useVenues();
   const { location, locations, setLocationId } = useLocation();
   const [isPickerOpen, setPickerOpen] = useState(false);
+  const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
+  const [isSheetOpen, setSheetOpen] = useState(false);
 
   // Ranking: só os locais da região selecionada, mais "hype" primeiro.
   const ranked = venues
     .filter((venue) => venue.locationId === location.id)
     .sort((a, b) => b.hypeScore - a.hypeScore);
+
+  // Busca sempre a versão mais recente do venue (não uma cópia
+  // congelada no momento do toque), pra a folha refletir avaliações
+  // novas na hora, sem precisar fechar e reabrir.
+  const sheetVenue = venues.find((venue) => venue.id === selectedVenueId) ?? null;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -60,7 +68,15 @@ export default function ListaScreen() {
           keyExtractor={(venue) => venue.id}
           contentContainerStyle={styles.list}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
-          renderItem={({ item }) => <VenueCard venue={item} />}
+          renderItem={({ item }) => (
+            <VenueCard
+              venue={item}
+              onPress={() => {
+                setSelectedVenueId(item.id);
+                setSheetOpen(true);
+              }}
+            />
+          )}
         />
       )}
 
@@ -70,6 +86,12 @@ export default function ListaScreen() {
         selectedId={location.id}
         onSelect={setLocationId}
         onClose={() => setPickerOpen(false)}
+      />
+
+      <VenueDetailSheet
+        visible={isSheetOpen}
+        venue={sheetVenue}
+        onClose={() => setSheetOpen(false)}
       />
     </SafeAreaView>
   );
