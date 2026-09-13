@@ -7,13 +7,9 @@ export const colors = {
   surfaceRaised: "#1C1C22",
   border: "rgba(255, 255, 255, 0.08)",
   borderStrong: "rgba(255, 255, 255, 0.16)",
-  // Cores dedicadas ao card da lista. Tons de cinza quase-preto (ex:
-  // #4A4A56 sobre #0A0A0D) se mostraram sutis demais na prática — a
-  // diferença é pequena o bastante pra sumir em prints/compressão e até
-  // a olho nu dependendo do brilho da tela. Usar a cor de destaque
-  // (âmbar) na borda resolve isso: contraste de cor, não só de
-  // luminância, então nunca passa despercebido.
-  cardBorder: "#E8B24D",
+  // Cores dedicadas ao card da lista — âmbar na borda (contraste de cor,
+  // não só de luminância) contra um fundo bem mais claro que o da tela.
+  cardBorder: "rgba(232, 178, 77, 0.6)",
   cardSurface: "#2E2E3A",
 
   text: "#F2F2F4",

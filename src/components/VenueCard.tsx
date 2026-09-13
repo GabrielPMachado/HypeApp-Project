@@ -20,67 +20,75 @@ export function VenueCard({ venue }: { venue: Venue }) {
 
   return (
     <Link href={{ pathname: "/venue/[id]", params: { id: venue.id } }} asChild>
-      <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
-        <View style={styles.headerRow}>
-          <VenueAvatar
-            name={venue.name}
-            logoUrl={venue.logoUrl}
-            vibeTag={venue.vibeTags[0]}
-            size={52}
-          />
+      {/* IMPORTANTE: o Link (asChild) clona este Pressable pra virar um
+          <a> na web / handler de toque no nativo — nesse processo ele
+          DESCARTA a prop `style` do Pressable (confirmado inspecionando
+          o DOM: a tag <a> resultante não carregava nenhuma classe de
+          styles.card, mesmo com o código "correto"). Por isso o visual
+          do card mora numa View filha, nunca na prop `style` do próprio
+          elemento que o Link clona. O estado "pressed" vem via
+          children-como-função do Pressable, que É preservado. */}
+      <Pressable>
+        {({ pressed }) => (
+          <View style={[styles.card, pressed && styles.cardPressed]}>
+            <View style={styles.headerRow}>
+              <VenueAvatar
+                name={venue.name}
+                logoUrl={venue.logoUrl}
+                vibeTag={venue.vibeTags[0]}
+                size={52}
+              />
 
-          <Text style={styles.name} numberOfLines={1}>
-            {venue.name}
-          </Text>
+              <Text style={styles.name} numberOfLines={1}>
+                {venue.name}
+              </Text>
 
-          <View style={styles.scorePill}>
-            <Feather name="zap" size={12} color={colors.accent} />
-            <Text style={styles.scoreText}>{venue.hypeScore.toFixed(1)}</Text>
-          </View>
-        </View>
-
-        {hypeStatus ? (
-          <HypeBadge level={hypeStatus.level} />
-        ) : (
-          <Text style={styles.noStatus}>Ainda sem status de hype</Text>
-        )}
-
-        <View style={styles.tagsRow}>
-          {vibeTags.map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
+              <View style={styles.scorePill}>
+                <Feather name="zap" size={12} color={colors.accent} />
+                <Text style={styles.scoreText}>{venue.hypeScore.toFixed(1)}</Text>
+              </View>
             </View>
-          ))}
-        </View>
 
-        <View style={styles.divider} />
+            {hypeStatus ? (
+              <HypeBadge level={hypeStatus.level} />
+            ) : (
+              <Text style={styles.noStatus}>Ainda sem status de hype</Text>
+            )}
 
-        <View style={styles.footerRow}>
-          {aggregateRating ? (
-            <>
-              <RatingStars value={getOverallRating(aggregateRating)} size={13} />
-              <Text style={styles.footerText}>{venue.reviews.length} avaliações</Text>
-            </>
-          ) : (
-            <Text style={styles.footerText}>Sem avaliações ainda</Text>
-          )}
-          <View style={{ flex: 1 }} />
-          <Feather name="chevron-right" size={16} color={colors.textFaint} />
-        </View>
+            <View style={styles.tagsRow}>
+              {vibeTags.map((tag) => (
+                <View key={tag} style={styles.tag}>
+                  <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.footerRow}>
+              {aggregateRating ? (
+                <>
+                  <RatingStars value={getOverallRating(aggregateRating)} size={13} />
+                  <Text style={styles.footerText}>{venue.reviews.length} avaliações</Text>
+                </>
+              ) : (
+                <Text style={styles.footerText}>Sem avaliações ainda</Text>
+              )}
+              <View style={{ flex: 1 }} />
+              <Feather name="chevron-right" size={16} color={colors.textFaint} />
+            </View>
+          </View>
+        )}
       </Pressable>
     </Link>
   );
 }
 
-// Nota: cardSurface/cardBorder vivem em src/theme/colors.ts. Se você
-// editar só aquele arquivo, o Metro às vezes não repropaga a mudança
-// pro StyleSheet.create já executado aqui — editar este arquivo força
-// o recálculo.
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.cardSurface,
     borderRadius: 18,
-    borderWidth: 3,
+    borderWidth: 1.5,
     borderColor: colors.cardBorder,
     padding: 18,
     gap: 14,
