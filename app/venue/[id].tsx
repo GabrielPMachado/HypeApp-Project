@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderStrong,
   },
   emptyReviews: {
     fontSize: 13,

@@ -69,7 +69,9 @@ export function VenueCard({ venue }: { venue: Venue }) {
               {aggregateRating ? (
                 <>
                   <RatingStars value={getOverallRating(aggregateRating)} size={13} />
-                  <Text style={styles.footerText}>{venue.reviews.length} avaliações</Text>
+                  <Text style={styles.footerText}>
+                    {venue.reviews.length} {venue.reviews.length === 1 ? "avaliação" : "avaliações"}
+                  </Text>
                 </>
               ) : (
                 <Text style={styles.footerText}>Sem avaliações ainda</Text>
@@ -153,7 +155,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderStrong,
   },
   footerRow: {
     flexDirection: "row",
