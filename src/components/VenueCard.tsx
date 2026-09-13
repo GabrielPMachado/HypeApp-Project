@@ -72,11 +72,15 @@ export function VenueCard({ venue }: { venue: Venue }) {
   );
 }
 
+// Nota: cardSurface/cardBorder vivem em src/theme/colors.ts. Se você
+// editar só aquele arquivo, o Metro às vezes não repropaga a mudança
+// pro StyleSheet.create já executado aqui — editar este arquivo força
+// o recálculo.
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.cardSurface,
     borderRadius: 18,
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: colors.cardBorder,
     padding: 18,
     gap: 14,
