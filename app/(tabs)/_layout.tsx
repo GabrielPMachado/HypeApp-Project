@@ -1,7 +1,8 @@
+import { Feather } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
 
 import { colors } from "@/theme/colors";
+import { fontFamily } from "@/theme/typography";
 
 export default function TabsLayout() {
   return (
@@ -9,30 +10,35 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.background },
+        tabBarInactiveTintColor: colors.textFaint,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
+          height: 64,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontFamily: fontFamily.bodyMedium,
+          fontSize: 11,
+          letterSpacing: 0.2,
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: "Lista",
-          tabBarIcon: ({ color }) => <TabEmoji symbol="📋" color={color} />,
+          tabBarIcon: ({ color, size }) => <Feather name="list" size={size ?? 20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="mapa"
         options={{
           title: "Mapa",
-          tabBarIcon: ({ color }) => <TabEmoji symbol="🗺️" color={color} />,
+          tabBarIcon: ({ color, size }) => <Feather name="map" size={size ?? 20} color={color} />,
         }}
       />
     </Tabs>
   );
-}
-
-// Placeholder simples de ícone (emoji) até definirmos um set de ícones
-// (ex: @expo/vector-icons) para o app.
-function TabEmoji({ symbol }: { symbol: string; color: string }) {
-  return <Text style={{ fontSize: 18 }}>{symbol}</Text>;
 }

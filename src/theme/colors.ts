@@ -1,14 +1,27 @@
-// Paleta base do app, alinhada ao tema escuro definido em app.json (#09090B).
-// Ajuste livremente conforme a identidade visual for definida.
+// Paleta "dark premium / nightlife". Escala neutra com um único acento
+// (âmbar) usado com moderação — evita a estética "app de brinquedo" de
+// cores primárias saturadas espalhadas pela UI.
 export const colors = {
-  background: "#09090B",
-  surface: "#18181B",
-  text: "#FAFAFA",
-  textMuted: "#A1A1AA",
-  accent: "#A855F7",
+  background: "#0A0A0D",
+  surface: "#151519",
+  surfaceRaised: "#1C1C22",
+  border: "rgba(255, 255, 255, 0.08)",
+  borderStrong: "rgba(255, 255, 255, 0.16)",
 
-  // Status de "hype" usados nos indicadores colaborativos (🟢🟡🔴)
-  hypeLow: "#22C55E",
-  hypeMedium: "#EAB308",
-  hypeHigh: "#EF4444",
+  text: "#F2F2F4",
+  textMuted: "#9497A0",
+  textFaint: "#5C5F68",
+
+  accent: "#E8B24D", // âmbar — usado só em ênfase (destaque, seleção, dados)
+  accentMuted: "rgba(232, 178, 77, 0.16)",
+
+  // Nível de "hype" (ocupação/energia do local). Tons dessaturados,
+  // não são as cores de semáforo "cartoon" puras.
+  hypeLow: "#4E9E77",
+  hypeMedium: "#C79A3E",
+  hypeHigh: "#C1584B",
+
+  hypeLowMuted: "rgba(78, 158, 119, 0.16)",
+  hypeMediumMuted: "rgba(199, 154, 62, 0.16)",
+  hypeHighMuted: "rgba(193, 88, 75, 0.16)",
 } as const;

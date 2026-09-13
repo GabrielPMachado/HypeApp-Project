@@ -72,10 +72,10 @@ function solidPng(width, height, [r, g, b, a = 255]) {
 const outDir = path.join(__dirname, "..", "assets", "images");
 fs.mkdirSync(outDir, { recursive: true });
 
-// Paleta placeholder alinhada ao tema escuro do app.json (#09090B) e um
-// acento "hype" (roxo/rosa) só para diferenciar o ícone do fundo.
-const BG = [9, 9, 11, 255]; // #09090B
-const ACCENT = [168, 85, 247, 255]; // #A855F7
+// Paleta placeholder alinhada ao tema "dark premium" (src/theme/colors.ts):
+// fundo quase preto + acento âmbar, para diferenciar o ícone do fundo.
+const BG = [10, 10, 13, 255]; // #0A0A0D
+const ACCENT = [232, 178, 77, 255]; // #E8B24D
 
 const targets = [
   { file: "icon.png", size: 1024, color: ACCENT },
