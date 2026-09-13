@@ -74,9 +74,9 @@ export function VenueCard({ venue }: { venue: Venue }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: colors.cardSurface,
     borderRadius: 18,
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: colors.cardBorder,
     padding: 18,
     gap: 14,

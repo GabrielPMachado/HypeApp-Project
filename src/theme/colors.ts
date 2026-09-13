@@ -7,7 +7,8 @@ export const colors = {
   surfaceRaised: "#1C1C22",
   border: "rgba(255, 255, 255, 0.08)",
   borderStrong: "rgba(255, 255, 255, 0.16)",
-  cardBorder: "#3A3A44", // cor sólida (não translúcida) — usada nos cards da lista pra garantir contraste visível contra o fundo, independente de brilho/tema do aparelho
+  cardBorder: "#4A4A56", // cor sólida (não translúcida) — usada nos cards da lista pra garantir contraste visível contra o fundo, independente de brilho/tema do aparelho
+  cardSurface: "#242430", // bem mais claro que o fundo (#0A0A0D) de propósito, pro card se destacar como bloco separado
 
   text: "#F2F2F4",
   textMuted: "#9497A0",

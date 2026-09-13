@@ -59,6 +59,7 @@ export default function ListaScreen() {
           data={ranked}
           keyExtractor={(venue) => venue.id}
           contentContainerStyle={styles.list}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
           renderItem={({ item }) => <VenueCard venue={item} />}
         />
       )}
@@ -126,7 +127,9 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: 20,
-    gap: 20,
+  },
+  separator: {
+    height: 24,
   },
   emptyState: {
     flex: 1,
