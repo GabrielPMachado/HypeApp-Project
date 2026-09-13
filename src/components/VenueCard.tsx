@@ -22,7 +22,7 @@ export function VenueCard({ venue }: { venue: Venue }) {
     <Link href={{ pathname: "/venue/[id]", params: { id: venue.id } }} asChild>
       <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
         <View style={styles.headerRow}>
-          <VenueAvatar name={venue.name} logoUrl={venue.logoUrl} size={42} />
+          <VenueAvatar name={venue.name} logoUrl={venue.logoUrl} size={52} />
 
           <Text style={styles.name} numberOfLines={1}>
             {venue.name}
@@ -48,6 +48,8 @@ export function VenueCard({ venue }: { venue: Venue }) {
           ))}
         </View>
 
+        <View style={styles.divider} />
+
         <View style={styles.footerRow}>
           {aggregateRating ? (
             <>
@@ -68,11 +70,11 @@ export function VenueCard({ venue }: { venue: Venue }) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.22)",
+    borderColor: colors.cardBorder,
     padding: 18,
-    gap: 10,
+    gap: 14,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
@@ -85,7 +87,7 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
   },
   name: {
     flex: 1,
@@ -132,11 +134,14 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
   footerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 2,
   },
   footerText: {
     fontSize: 12,

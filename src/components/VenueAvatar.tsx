@@ -29,11 +29,13 @@ interface VenueAvatarProps {
   size?: number;
 }
 
-// Mostra a logo real do bar quando existir (logoUrl); enquanto não temos
+// Mostra a foto real do bar quando existir (logoUrl); enquanto não temos
 // esse dado (upload via Firebase Storage é próxima etapa), cai pra um
-// avatar de iniciais com cor determinística — nunca genérico/vazio.
+// card de iniciais com cor determinística — nunca genérico/vazio.
+// Formato quadrado arredondado (não círculo) de propósito: lê como foto
+// de local, não como avatar de perfil de usuário.
 export function VenueAvatar({ name, logoUrl, size = 44 }: VenueAvatarProps) {
-  const dimensionStyle = { width: size, height: size, borderRadius: size / 2 };
+  const dimensionStyle = { width: size, height: size, borderRadius: size * 0.28 };
 
   if (logoUrl) {
     return <Image source={{ uri: logoUrl }} style={[styles.image, dimensionStyle]} />;
@@ -42,7 +44,13 @@ export function VenueAvatar({ name, logoUrl, size = 44 }: VenueAvatarProps) {
   const tone = AVATAR_PALETTE[hashString(name) % AVATAR_PALETTE.length];
 
   return (
-    <View style={[styles.placeholder, dimensionStyle, { backgroundColor: `${tone}26` }]}>
+    <View
+      style={[
+        styles.placeholder,
+        dimensionStyle,
+        { backgroundColor: `${tone}33`, borderColor: `${tone}55` },
+      ]}
+    >
       <Text style={[styles.initials, { color: tone, fontSize: size * 0.36 }]}>
         {getInitials(name)}
       </Text>

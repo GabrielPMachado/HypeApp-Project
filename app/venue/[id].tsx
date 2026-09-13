@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    gap: 16,
+    gap: 20,
   },
   notFound: {
     fontFamily: fontFamily.body,
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   headerBlock: {
-    gap: 10,
+    gap: 12,
   },
   identityRow: {
     flexDirection: "row",

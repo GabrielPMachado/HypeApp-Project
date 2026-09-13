@@ -11,16 +11,22 @@ interface VenueLocationMapProps {
   address: string;
 }
 
-// Mapa estático (sem API key) via OpenStreetMap, com botão pra abrir a
-// localização no app de mapas nativo do aparelho. Um mapa nativo
-// interativo (react-native-maps) exigiria API key do Google Maps e um
-// build customizado fora do Expo Go — fica como próxima etapa.
+const MAP_HEIGHT = 160;
+const PIN_SIZE = 30;
+
+// Mapa estático (sem API key) via Wikimedia Maps — infraestrutura da
+// Wikimedia Foundation, bem mais estável que serviços não-oficiais.
+// O serviço não desenha marcador, então sobrepomos um pin próprio
+// exatamente no centro da imagem (que é sempre o ponto "center=lat,lon").
+// Toque no card abre a localização no app de mapas nativo do aparelho.
+// Um mapa nativo interativo (react-native-maps) exigiria API key do
+// Google Maps e um build customizado fora do Expo Go — próxima etapa.
 export function VenueLocationMap({ latitude, longitude, address }: VenueLocationMapProps) {
   const [imageFailed, setImageFailed] = useState(false);
 
-  const staticMapUrl =
-    `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}` +
-    `&zoom=15&size=640x320&maptype=mapnik&markers=${latitude},${longitude},red-pushpin`;
+  const staticMapUrl = `https://maps.wikimedia.org/img/osm-intl,16,${latitude},${longitude},640x${
+    MAP_HEIGHT * 2
+  }.png`;
 
   const openInMaps = () => {
     const url = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
@@ -35,11 +41,16 @@ export function VenueLocationMap({ latitude, longitude, address }: VenueLocation
           <Text style={styles.fallbackText}>Mapa indisponível no momento</Text>
         </View>
       ) : (
-        <Image
-          source={{ uri: staticMapUrl }}
-          style={styles.map}
-          onError={() => setImageFailed(true)}
-        />
+        <>
+          <Image
+            source={{ uri: staticMapUrl }}
+            style={styles.map}
+            onError={() => setImageFailed(true)}
+          />
+          <View pointerEvents="none" style={styles.pinWrap}>
+            <Feather name="map-pin" size={PIN_SIZE} color={colors.accent} />
+          </View>
+        </>
       )}
 
       <View style={styles.overlay}>
@@ -62,12 +73,19 @@ const styles = StyleSheet.create({
   },
   map: {
     width: "100%",
-    height: 160,
+    height: MAP_HEIGHT,
     backgroundColor: colors.surfaceRaised,
+  },
+  pinWrap: {
+    position: "absolute",
+    top: MAP_HEIGHT / 2 - PIN_SIZE,
+    left: 0,
+    right: 0,
+    alignItems: "center",
   },
   fallback: {
     width: "100%",
-    height: 160,
+    height: MAP_HEIGHT,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
