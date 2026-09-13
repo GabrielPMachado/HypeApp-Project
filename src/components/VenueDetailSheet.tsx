@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { EvaluationModal } from "@/components/EvaluationModal";
 import { HypeBadge } from "@/components/HypeBadge";
@@ -30,7 +31,7 @@ interface VenueDetailSheetProps {
 // lista (não navega pra outra tela) — a lista continua ali embaixo,
 // visível ao redor, e um toque fora ou no X fecha e volta pra ela.
 export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetProps) {
-  const { addHypeReport, addReview } = useVenues();
+  const { addHypeReport, addReview, setVenueLogo } = useVenues();
   const [isHypeModalOpen, setHypeModalOpen] = useState(false);
   const [isEvaluationOpen, setEvaluationOpen] = useState(false);
 
@@ -39,6 +40,31 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
   const hypeStatus = getCurrentHypeStatus(venue.hypeReports);
   const aggregateRating = getAggregateRating(venue.reviews);
   const vibeTags = getAggregateVibeTags(venue);
+
+  // Sem backend ainda, então a logo é a URI local do celular (galeria).
+  // Fica salva só neste aparelho, mas já deixa a estrutura pronta pro
+  // dia que vier de um upload de verdade.
+  const pickLogo = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        "Permissão necessária",
+        "Preciso de acesso às suas fotos pra definir a logo do local."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setVenueLogo(venue.id, result.assets[0].uri);
+    }
+  };
 
   return (
     <>
@@ -55,12 +81,17 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
               <View style={styles.headerBlock}>
                 <View style={styles.identityRow}>
-                  <VenueAvatar
-                    name={venue.name}
-                    logoUrl={venue.logoUrl}
-                    vibeTag={venue.vibeTags[0]}
-                    size={56}
-                  />
+                  <Pressable onPress={pickLogo} style={styles.avatarWrap}>
+                    <VenueAvatar
+                      name={venue.name}
+                      logoUrl={venue.logoUrl}
+                      vibeTag={venue.vibeTags[0]}
+                      size={56}
+                    />
+                    <View style={styles.avatarEditBadge}>
+                      <Feather name="camera" size={11} color={colors.background} />
+                    </View>
+                  </Pressable>
                   <View style={styles.identityText}>
                     <Text style={styles.name}>{venue.name}</Text>
                     <Text style={styles.address}>{venue.address}</Text>
@@ -257,6 +288,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
     paddingRight: 40,
+  },
+  avatarWrap: {
+    position: "relative",
+  },
+  avatarEditBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.accent,
+    borderWidth: 2,
+    borderColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
   },
   identityText: {
     flex: 1,

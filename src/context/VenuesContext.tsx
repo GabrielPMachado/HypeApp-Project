@@ -7,6 +7,7 @@ interface VenuesContextValue {
   venues: Venue[];
   addHypeReport: (id: string, level: HypeLevel) => void;
   addReview: (id: string, review: Omit<Review, "id" | "createdAt">) => void;
+  setVenueLogo: (id: string, logoUrl: string) => void;
 }
 
 const VenuesContext = createContext<VenuesContextValue | undefined>(undefined);
@@ -48,7 +49,17 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const value = useMemo(() => ({ venues, addHypeReport, addReview }), [venues]);
+  // Logo é local ao dispositivo por enquanto (URI do próprio celular,
+  // vindo da galeria) — sem backend ainda pra guardar/servir a imagem
+  // pra outros usuários.
+  const setVenueLogo = (id: string, logoUrl: string) => {
+    setVenues((prev) => prev.map((venue) => (venue.id === id ? { ...venue, logoUrl } : venue)));
+  };
+
+  const value = useMemo(
+    () => ({ venues, addHypeReport, addReview, setVenueLogo }),
+    [venues]
+  );
 
   return <VenuesContext.Provider value={value}>{children}</VenuesContext.Provider>;
 }
