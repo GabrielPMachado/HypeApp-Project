@@ -59,7 +59,12 @@ export default function VenueDetailScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.headerBlock}>
           <View style={styles.identityRow}>
-            <VenueAvatar name={venue.name} logoUrl={venue.logoUrl} size={56} />
+            <VenueAvatar
+              name={venue.name}
+              logoUrl={venue.logoUrl}
+              vibeTag={venue.vibeTags[0]}
+              size={56}
+            />
             <View style={styles.identityText}>
               <Text style={styles.name}>{venue.name}</Text>
               <Text style={styles.address}>{venue.address}</Text>
