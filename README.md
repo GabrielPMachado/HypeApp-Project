@@ -43,11 +43,26 @@ Após a validação na Cidade Baixa, o HypeApp monetizará através de frentes v
 
 ---
 
-## 🛠️ Stack Tecnológica Recomendada (MVP)
+## 🛠️ Stack Tecnológica (MVP)
 
-* **Frontend (Mobile):** Flutter (iOS e Android)
+* **Frontend (Mobile):** React Native com [Expo](https://expo.dev/) (Expo Router para navegação)
 * **Backend & Banco de Dados:** Firebase (Firestore/Realtime Database para status ao vivo)
 * **Geolocalização:** Google Maps API
+
+---
+
+## 🚀 Como Rodar o Projeto
+
+Pré-requisitos: [Node.js](https://nodejs.org/) e o app **Expo Go** instalado no celular ([Android](https://play.google.com/store/apps/details?id=host.exp.exponent) / [iOS](https://apps.apple.com/app/expo-go/id982107779)).
+
+```bash
+npm install
+npx expo start
+```
+
+Isso abre o Metro Bundler e mostra uma URL/QR code no terminal. Com o celular na **mesma rede Wi-Fi** do computador, abra o Expo Go e escaneie o QR code (ou digite a URL manualmente, ex: `exp://192.168.x.x:8081`).
+
+Se for integrar com o Firebase, copie `.env.example` para `.env` e preencha com as credenciais do seu projeto Firebase — esse arquivo nunca deve ser commitado.
 
 ---
 
