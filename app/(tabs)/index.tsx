@@ -22,6 +22,12 @@ export default function ListaScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      {/* Marcador temporário de depuração — remover depois de confirmar
+          que o app está rodando o bundle mais recente. */}
+      <View style={styles.debugBanner}>
+        <Text style={styles.debugBannerText}>BUILD 03:45 — se você não vê isso, é cache</Text>
+      </View>
+
       <View style={styles.header}>
         <View style={styles.wordmarkRow}>
           <View style={styles.wordmarkDot} />
@@ -79,6 +85,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  debugBanner: {
+    backgroundColor: "#FF0000",
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  debugBannerText: {
+    color: "#FFFFFF",
+    fontFamily: fontFamily.bodySemiBold,
+    fontSize: 13,
   },
   header: {
     paddingHorizontal: 20,
