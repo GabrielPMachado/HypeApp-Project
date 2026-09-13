@@ -32,6 +32,7 @@ export interface Review {
 export interface Venue {
   id: string;
   name: string;
+  locationId: string; // referencia CityLocation (src/data/locations.ts)
   address: string;
   priceRange: PriceRange;
   openingHours: string;

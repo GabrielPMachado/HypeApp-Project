@@ -8,6 +8,7 @@ export const mockVenues: Venue[] = [
   {
     id: "1",
     name: "Bar do Zé",
+    locationId: "cidade-baixa-poa",
     address: "Rua João Alfredo, 412 — Cidade Baixa",
     priceRange: "$$",
     openingHours: "Ter a Dom, 18h às 02h",
@@ -37,6 +38,7 @@ export const mockVenues: Venue[] = [
   {
     id: "2",
     name: "Quintal Music Bar",
+    locationId: "cidade-baixa-poa",
     address: "Av. José Bonifácio, 289 — Cidade Baixa",
     priceRange: "$$",
     openingHours: "Qui a Sáb, 19h às 03h",
@@ -59,6 +61,7 @@ export const mockVenues: Venue[] = [
   {
     id: "3",
     name: "Espaço Beco",
+    locationId: "cidade-baixa-poa",
     address: "Travessa do Carmo, 77 — Cidade Baixa",
     priceRange: "$$$",
     openingHours: "Sex e Sáb, 22h às 05h",
@@ -81,6 +84,7 @@ export const mockVenues: Venue[] = [
   {
     id: "4",
     name: "Bendito Bar",
+    locationId: "cidade-baixa-poa",
     address: "Rua da República, 550 — Cidade Baixa",
     priceRange: "$",
     openingHours: "Seg a Dom, 17h às 00h",
@@ -95,6 +99,7 @@ export const mockVenues: Venue[] = [
   {
     id: "5",
     name: "Casa Amarela",
+    locationId: "cidade-baixa-poa",
     address: "Rua General Lima e Silva, 900 — Cidade Baixa",
     priceRange: "$$",
     openingHours: "Qua a Sáb, 18h às 02h",

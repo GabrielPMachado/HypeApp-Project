@@ -4,6 +4,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
+import { LocationProvider } from "@/context/LocationContext";
 import { VenuesProvider } from "@/context/VenuesContext";
 import { colors } from "@/theme/colors";
 import { fontsToLoad } from "@/theme/typography";
@@ -24,9 +25,11 @@ export default function RootLayout() {
   }
 
   return (
-    <VenuesProvider>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
-    </VenuesProvider>
+    <LocationProvider>
+      <VenuesProvider>
+        <StatusBar style="light" />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+      </VenuesProvider>
+    </LocationProvider>
   );
 }
