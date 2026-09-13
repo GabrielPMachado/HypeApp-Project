@@ -1,10 +1,11 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
 import { mockVenues } from "@/data/mockVenues";
-import type { Review, Venue } from "@/types/venue";
+import type { HypeLevel, HypeReport, Review, Venue } from "@/types/venue";
 
 interface VenuesContextValue {
   venues: Venue[];
+  addHypeReport: (id: string, level: HypeLevel) => void;
   addReview: (id: string, review: Omit<Review, "id" | "createdAt">) => void;
 }
 
@@ -14,16 +15,30 @@ const VenuesContext = createContext<VenuesContextValue | undefined>(undefined);
 // Firebase entrar, só o "miolo" (o useState/fetch) precisa mudar — os
 // componentes que consomem useVenues() continuam iguais.
 //
-// Cada avaliação (addReview) já carrega o status de hype escolhido pelo
-// usuário, a nota por critério e as características marcadas — tudo em
-// um só registro. O hype exibido é derivado disso (ver src/utils/hype.ts).
+// Duas mutações bem separadas, espelhando os dois tipos de avaliação:
+// addHypeReport (rápida, só o status de agora) e addReview (fixa, nota
+// por critério + características + comentário).
 export function VenuesProvider({ children }: { children: ReactNode }) {
   const [venues, setVenues] = useState<Venue[]>(mockVenues);
+
+  const addHypeReport = (id: string, level: HypeLevel) => {
+    const newReport: HypeReport = {
+      id: `${id}-hr-${Date.now()}`,
+      authorName: "Você",
+      level,
+      createdAt: new Date().toISOString(),
+    };
+    setVenues((prev) =>
+      prev.map((venue) =>
+        venue.id === id ? { ...venue, hypeReports: [newReport, ...venue.hypeReports] } : venue
+      )
+    );
+  };
 
   const addReview = (id: string, review: Omit<Review, "id" | "createdAt">) => {
     const newReview: Review = {
       ...review,
-      id: `${id}-${Date.now()}`,
+      id: `${id}-rv-${Date.now()}`,
       createdAt: new Date().toISOString(),
     };
     setVenues((prev) =>
@@ -33,7 +48,7 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const value = useMemo(() => ({ venues, addReview }), [venues]);
+  const value = useMemo(() => ({ venues, addHypeReport, addReview }), [venues]);
 
   return <VenuesContext.Provider value={value}>{children}</VenuesContext.Provider>;
 }

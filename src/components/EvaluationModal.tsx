@@ -3,11 +3,10 @@ import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { RatingStars } from "@/components/RatingStars";
-import { StatusSegmentedControl } from "@/components/StatusSegmentedControl";
 import { ALL_VIBE_TAGS, VIBE_TAG_LABELS } from "@/constants/vibeTags";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
-import type { HypeLevel, Rating, VibeTag } from "@/types/venue";
+import type { Rating, VibeTag } from "@/types/venue";
 
 const CRITERIA: { key: keyof Rating; label: string }[] = [
   { key: "music", label: "Música" },
@@ -21,27 +20,14 @@ const EMPTY_RATING: Rating = { music: 0, price: 0, service: 0, ambiance: 0 };
 interface EvaluationModalProps {
   visible: boolean;
   venueName: string;
-  currentHypeLevel: HypeLevel;
   onClose: () => void;
-  onSubmit: (data: {
-    hypeLevel: HypeLevel;
-    rating: Rating;
-    vibeTags: VibeTag[];
-    comment: string;
-  }) => void;
+  onSubmit: (data: { rating: Rating; vibeTags: VibeTag[]; comment: string }) => void;
 }
 
-// Fluxo único de avaliação: como está o local agora (hype) + nota por
-// critério de qualidade + características percebidas + comentário.
-// Tudo vira um só registro (ver VenuesContext.addReview).
-export function EvaluationModal({
-  visible,
-  venueName,
-  currentHypeLevel,
-  onClose,
-  onSubmit,
-}: EvaluationModalProps) {
-  const [hypeLevel, setHypeLevel] = useState<HypeLevel>(currentHypeLevel);
+// Avaliação "fixa": nota por critério de qualidade + características
+// percebidas + comentário. Não mexe no status de hype — isso é feito
+// pela avaliação rápida (ver HypeReportModal).
+export function EvaluationModal({ visible, venueName, onClose, onSubmit }: EvaluationModalProps) {
   const [rating, setRating] = useState<Rating>(EMPTY_RATING);
   const [vibeTags, setVibeTags] = useState<VibeTag[]>([]);
   const [comment, setComment] = useState("");
@@ -49,7 +35,6 @@ export function EvaluationModal({
   const canSubmit = CRITERIA.every(({ key }) => rating[key] > 0);
 
   const reset = () => {
-    setHypeLevel(currentHypeLevel);
     setRating(EMPTY_RATING);
     setVibeTags([]);
     setComment("");
@@ -66,7 +51,7 @@ export function EvaluationModal({
 
   const handleSubmit = () => {
     if (!canSubmit) return;
-    onSubmit({ hypeLevel, rating, vibeTags, comment: comment.trim() });
+    onSubmit({ rating, vibeTags, comment: comment.trim() });
     reset();
   };
 
@@ -88,10 +73,7 @@ export function EvaluationModal({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <Text style={styles.sectionLabel}>Como está o local agora?</Text>
-            <StatusSegmentedControl value={hypeLevel} onChange={setHypeLevel} />
-
-            <Text style={[styles.sectionLabel, styles.spaced]}>Sua nota por critério</Text>
+            <Text style={styles.sectionLabel}>Sua nota por critério</Text>
             <View style={styles.criteriaList}>
               {CRITERIA.map(({ key, label }) => (
                 <View key={key} style={styles.criteriaRow}>

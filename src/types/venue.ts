@@ -11,9 +11,22 @@ export type VibeTag =
 
 export type PriceRange = "$" | "$$" | "$$$";
 
-// Avaliação de qualidade do local (independente do "hype" em tempo real).
-// Cada critério vai de 0 a 5. O card na lista mostra só o hype; o
-// breakdown completo fica na tela de detalhes.
+// Duas avaliações bem diferentes, de propósito separadas:
+//
+// HypeReport = avaliação "de hype": rápida, só o status de agora (como
+// está o local neste instante). É o que alimenta getCurrentHypeStatus.
+//
+// Review = avaliação "fixa": nota por critério (música, preço,
+// atendimento, ambiente), características percebidas e comentário —
+// mais estável, não expira como o hype.
+export interface HypeReport {
+  id: string;
+  authorName: string;
+  level: HypeLevel;
+  createdAt: string; // ISO timestamp
+}
+
+// Avaliação de qualidade do local. Cada critério vai de 0 a 5.
 export interface Rating {
   music: number;
   price: number; // custo-benefício
@@ -21,16 +34,9 @@ export interface Rating {
   ambiance: number;
 }
 
-// Cada avaliação da comunidade registra, de uma vez só: como está o local
-// agora (hypeLevel), a nota por critério, as características percebidas
-// (vibeTags) e um comentário — tudo feito no mesmo fluxo ("Fazer
-// avaliação"). O nível de hype exibido no app é derivado da MÉDIA das
-// avaliações recentes (ver getCurrentHypeStatus em src/utils/hype.ts),
-// não um valor fixo.
 export interface Review {
   id: string;
   authorName: string;
-  hypeLevel: HypeLevel;
   rating: Rating;
   vibeTags: VibeTag[];
   comment: string;
@@ -49,6 +55,7 @@ export interface Venue {
   hypeScore: number; // "Nota do Hype", 0-10 — energia geral (ainda mock/fixa)
   vibeTags: VibeTag[]; // características "seed" do local, antes de qualquer avaliação
   logoUrl?: string; // quando ainda não há logo real, a UI cai pra um avatar com iniciais
-  reviews: Review[]; // hype atual e nota de qualidade são derivados destes
+  hypeReports: HypeReport[]; // status atual é derivado destes (ver getCurrentHypeStatus)
+  reviews: Review[]; // avaliação de qualidade é derivada destes (ver getAggregateRating)
   updatedAt: string; // ISO timestamp da última atualização colaborativa
 }

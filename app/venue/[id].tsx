@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { EvaluationModal } from "@/components/EvaluationModal";
 import { HypeBadge } from "@/components/HypeBadge";
+import { HypeReportModal } from "@/components/HypeReportModal";
 import { PremiumTeaser } from "@/components/PremiumTeaser";
 import { RatingBreakdown } from "@/components/RatingBreakdown";
 import { RatingStars } from "@/components/RatingStars";
@@ -16,14 +17,14 @@ import { VIBE_TAG_LABELS } from "@/constants/vibeTags";
 import { useVenues } from "@/context/VenuesContext";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
-import { getCurrentHypeStatus } from "@/utils/hype";
+import { formatHypeWindow, getCurrentHypeStatus } from "@/utils/hype";
 import { getAggregateRating, getOverallRating } from "@/utils/rating";
-import { formatRelativeTime } from "@/utils/time";
 import { getAggregateVibeTags } from "@/utils/vibeTags";
 
 export default function VenueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { venues, addReview } = useVenues();
+  const { venues, addHypeReport, addReview } = useVenues();
+  const [isHypeModalOpen, setHypeModalOpen] = useState(false);
   const [isEvaluationOpen, setEvaluationOpen] = useState(false);
 
   const venue = venues.find((v) => v.id === id);
@@ -37,7 +38,7 @@ export default function VenueDetailScreen() {
     );
   }
 
-  const hypeStatus = getCurrentHypeStatus(venue.reviews);
+  const hypeStatus = getCurrentHypeStatus(venue.hypeReports);
   const aggregateRating = getAggregateRating(venue.reviews);
   const vibeTags = getAggregateVibeTags(venue);
 
@@ -56,54 +57,56 @@ export default function VenueDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.identityRow}>
-          <VenueAvatar name={venue.name} logoUrl={venue.logoUrl} size={56} />
-          <View style={styles.identityText}>
-            <Text style={styles.name}>{venue.name}</Text>
-            <Text style={styles.address}>{venue.address}</Text>
-          </View>
-        </View>
-
-        <View style={styles.metaRow}>
-          <View style={styles.metaItem}>
-            <Feather name="clock" size={13} color={colors.textMuted} />
-            <Text style={styles.metaText}>{venue.openingHours}</Text>
-          </View>
-          <View style={styles.metaItem}>
-            <Feather name="dollar-sign" size={13} color={colors.textMuted} />
-            <Text style={styles.metaText}>{venue.priceRange}</Text>
-          </View>
-        </View>
-
-        <View style={styles.tagsRow}>
-          {vibeTags.map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
+        <View style={styles.headerBlock}>
+          <View style={styles.identityRow}>
+            <VenueAvatar name={venue.name} logoUrl={venue.logoUrl} size={56} />
+            <View style={styles.identityText}>
+              <Text style={styles.name}>{venue.name}</Text>
+              <Text style={styles.address}>{venue.address}</Text>
             </View>
-          ))}
-        </View>
+          </View>
 
-        <View style={styles.hypeRow}>
-          {hypeStatus ? (
-            <HypeBadge level={hypeStatus.level} />
-          ) : (
-            <Text style={styles.noStatus}>Sem avaliações ainda</Text>
-          )}
-          <View style={styles.hypeScorePill}>
-            <Feather name="zap" size={12} color={colors.accent} />
-            <Text style={styles.hypeScoreText}>{venue.hypeScore.toFixed(1)} hype agora</Text>
+          <View style={styles.metaRow}>
+            <View style={styles.metaItem}>
+              <Feather name="clock" size={13} color={colors.textMuted} />
+              <Text style={styles.metaText}>{venue.openingHours}</Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Feather name="dollar-sign" size={13} color={colors.textMuted} />
+              <Text style={styles.metaText}>{venue.priceRange}</Text>
+            </View>
+          </View>
+
+          <View style={styles.tagsRow}>
+            {vibeTags.map((tag) => (
+              <View key={tag} style={styles.tag}>
+                <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
-        {hypeStatus && (
-          <Text style={styles.hypeMeta}>
-            {hypeStatus.isRecent
-              ? `Média de ${hypeStatus.sampleSize} ${
-                  hypeStatus.sampleSize === 1 ? "avaliação" : "avaliações"
-                } nos últimos 30 min`
-              : `Baseado na última atualização, ${formatRelativeTime(hypeStatus.lastReportAt)}`}
-          </Text>
-        )}
+        <View style={styles.hypeBlock}>
+          <View style={styles.hypeRow}>
+            {hypeStatus ? (
+              <HypeBadge level={hypeStatus.level} />
+            ) : (
+              <Text style={styles.noStatus}>Ainda sem status de hype</Text>
+            )}
+            <View style={styles.hypeScorePill}>
+              <Feather name="zap" size={12} color={colors.accent} />
+              <Text style={styles.hypeScoreText}>{venue.hypeScore.toFixed(1)} hype agora</Text>
+            </View>
+          </View>
+
+          {hypeStatus && (
+            <Text style={styles.hypeMeta}>
+              Média de {hypeStatus.sampleSize}{" "}
+              {hypeStatus.sampleSize === 1 ? "avaliação" : "avaliações"} — janela de{" "}
+              {formatHypeWindow(hypeStatus.windowMinutes)}
+            </Text>
+          )}
+        </View>
 
         <VenueLocationMap
           latitude={venue.latitude}
@@ -111,13 +114,23 @@ export default function VenueDetailScreen() {
           address={venue.address}
         />
 
-        <Pressable
-          onPress={() => setEvaluationOpen(true)}
-          style={({ pressed }) => [styles.evaluateButton, pressed && styles.evaluateButtonPressed]}
-        >
-          <Feather name="edit-3" size={15} color={colors.background} />
-          <Text style={styles.evaluateButtonText}>Fazer avaliação</Text>
-        </Pressable>
+        <View style={styles.evaluateRow}>
+          <Pressable
+            onPress={() => setHypeModalOpen(true)}
+            style={({ pressed }) => [styles.hypeButton, pressed && styles.buttonPressed]}
+          >
+            <Feather name="zap" size={15} color={colors.background} />
+            <Text style={styles.hypeButtonText}>Hype agora</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setEvaluationOpen(true)}
+            style={({ pressed }) => [styles.fixedButton, pressed && styles.buttonPressed]}
+          >
+            <Feather name="edit-3" size={15} color={colors.text} />
+            <Text style={styles.fixedButtonText}>Avaliação completa</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.divider} />
 
@@ -136,7 +149,7 @@ export default function VenueDetailScreen() {
             <RatingBreakdown rating={aggregateRating} />
           ) : (
             <Text style={styles.emptyReviews}>
-              Ainda sem avaliações — toque em "Fazer avaliação" pra ser o primeiro.
+              Ainda sem avaliações — toque em "Avaliação completa" pra ser o primeiro.
             </Text>
           )}
         </View>
@@ -165,19 +178,20 @@ export default function VenueDetailScreen() {
         </View>
       </ScrollView>
 
+      <HypeReportModal
+        visible={isHypeModalOpen}
+        venueName={venue.name}
+        currentHypeLevel={hypeStatus?.level ?? "medium"}
+        onClose={() => setHypeModalOpen(false)}
+        onSubmit={(level) => addHypeReport(venue.id, level)}
+      />
+
       <EvaluationModal
         visible={isEvaluationOpen}
         venueName={venue.name}
-        currentHypeLevel={hypeStatus?.level ?? "medium"}
         onClose={() => setEvaluationOpen(false)}
-        onSubmit={({ hypeLevel, rating, vibeTags: selectedTags, comment }) => {
-          addReview(venue.id, {
-            authorName: "Você",
-            hypeLevel,
-            rating,
-            vibeTags: selectedTags,
-            comment,
-          });
+        onSubmit={({ rating, vibeTags: selectedTags, comment }) => {
+          addReview(venue.id, { authorName: "Você", rating, vibeTags: selectedTags, comment });
           setEvaluationOpen(false);
         }}
       />
@@ -206,13 +220,16 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    gap: 14,
+    gap: 16,
   },
   notFound: {
     fontFamily: fontFamily.body,
     color: colors.textMuted,
     textAlign: "center",
     marginTop: 40,
+  },
+  headerBlock: {
+    gap: 10,
   },
   identityRow: {
     flexDirection: "row",
@@ -266,11 +283,13 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
+  hypeBlock: {
+    gap: 6,
+  },
   hypeRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginTop: 4,
   },
   noStatus: {
     fontSize: 12,
@@ -296,9 +315,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fontFamily.body,
     color: colors.textFaint,
-    marginTop: -8,
   },
-  evaluateButton: {
+  evaluateRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  buttonPressed: {
+    opacity: 0.85,
+  },
+  hypeButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -306,15 +332,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     borderRadius: 12,
     paddingVertical: 13,
-    marginTop: 4,
   },
-  evaluateButtonPressed: {
-    opacity: 0.85,
-  },
-  evaluateButtonText: {
-    fontSize: 14,
+  hypeButtonText: {
+    fontSize: 13,
     fontFamily: fontFamily.bodySemiBold,
     color: colors.background,
+  },
+  fixedButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: 12,
+    paddingVertical: 13,
+  },
+  fixedButtonText: {
+    fontSize: 13,
+    fontFamily: fontFamily.bodySemiBold,
+    color: colors.text,
   },
   section: {
     gap: 10,
