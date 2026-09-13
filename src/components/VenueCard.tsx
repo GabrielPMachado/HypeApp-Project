@@ -4,33 +4,46 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { HypeBadge } from "@/components/HypeBadge";
 import { RatingStars } from "@/components/RatingStars";
+import { VenueAvatar } from "@/components/VenueAvatar";
+import { VIBE_TAG_LABELS } from "@/constants/vibeTags";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { Venue } from "@/types/venue";
+import { getCurrentHypeStatus } from "@/utils/hype";
 import { getAggregateRating, getOverallRating } from "@/utils/rating";
+import { getAggregateVibeTags } from "@/utils/vibeTags";
 
 export function VenueCard({ venue }: { venue: Venue }) {
+  const hypeStatus = getCurrentHypeStatus(venue.reviews);
   const aggregateRating = getAggregateRating(venue.reviews);
+  const vibeTags = getAggregateVibeTags(venue);
 
   return (
     <Link href={{ pathname: "/venue/[id]", params: { id: venue.id } }} asChild>
       <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
         <View style={styles.headerRow}>
+          <VenueAvatar name={venue.name} logoUrl={venue.logoUrl} size={42} />
+
           <Text style={styles.name} numberOfLines={1}>
             {venue.name}
           </Text>
+
           <View style={styles.scorePill}>
             <Feather name="zap" size={12} color={colors.accent} />
             <Text style={styles.scoreText}>{venue.hypeScore.toFixed(1)}</Text>
           </View>
         </View>
 
-        <HypeBadge level={venue.hypeLevel} />
+        {hypeStatus ? (
+          <HypeBadge level={hypeStatus.level} />
+        ) : (
+          <Text style={styles.noStatus}>Sem avaliações ainda</Text>
+        )}
 
         <View style={styles.tagsRow}>
-          {venue.vibeTags.map((tag) => (
+          {vibeTags.map((tag) => (
             <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{tag.replace(/-/g, " ")}</Text>
+              <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
             </View>
           ))}
         </View>
@@ -71,13 +84,12 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     gap: 12,
   },
   name: {
     flex: 1,
-    fontSize: 17,
+    fontSize: 16,
     fontFamily: fontFamily.display,
     color: colors.text,
   },
@@ -94,6 +106,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fontFamily.bodySemiBold,
     color: colors.accent,
+  },
+  noStatus: {
+    fontSize: 12,
+    fontFamily: fontFamily.body,
+    color: colors.textFaint,
+    fontStyle: "italic",
   },
   tagsRow: {
     flexDirection: "row",
