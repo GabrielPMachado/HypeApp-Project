@@ -7,10 +7,12 @@ export const colors = {
   surfaceRaised: "#1C1C22",
   border: "rgba(255, 255, 255, 0.08)",
   borderStrong: "rgba(255, 255, 255, 0.16)",
-  // Cores dedicadas ao card da lista — âmbar na borda (contraste de cor,
-  // não só de luminância) contra um fundo bem mais claro que o da tela.
-  cardBorder: "rgba(232, 178, 77, 0.6)",
-  cardSurface: "#2E2E3A",
+  // Cores dedicadas ao card da lista. O card já se separa do fundo pela
+  // superfície mais clara (cardSurface) + sombra; a borda é só um
+  // hairline neutro de definição — o âmbar fica reservado pros pontos
+  // de ênfase (score, badges, botões), não na moldura de todo card.
+  cardBorder: "rgba(255, 255, 255, 0.14)",
+  cardSurface: "#232330",
 
   text: "#F2F2F4",
   textMuted: "#9497A0",

@@ -105,9 +105,22 @@ export function VenueLocationMap({ latitude, longitude }: VenueLocationMapProps)
           {tiles.map((tile) => (
             <Image
               key={tile.key}
-              source={{ uri: tile.uri }}
+              source={{
+                uri: tile.uri,
+                // OSM pede User-Agent identificando o app (não bloqueia,
+                // mas evita cair em heurísticas de bloqueio de tráfego
+                // anônimo). Também ajuda a descartar essa causa no diagnóstico.
+                headers: { "User-Agent": "HypeApp-dev/1.0 (app de teste, uso local)" },
+              }}
               style={[styles.tile, { left: tile.left, top: tile.top }]}
-              onError={() => setFailedTiles((prev) => ({ ...prev, [tile.key]: true }))}
+              onError={(event) => {
+                console.warn(
+                  "[VenueLocationMap] tile falhou:",
+                  tile.uri,
+                  JSON.stringify(event.nativeEvent)
+                );
+                setFailedTiles((prev) => ({ ...prev, [tile.key]: true }));
+              }}
             />
           ))}
           <View pointerEvents="none" style={styles.pinWrap}>
