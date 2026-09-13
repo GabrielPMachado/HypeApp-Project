@@ -1,144 +1,726 @@
-import type { Venue } from "@/types/venue";
+import type { HypeLevel, HypeReport, Rating, Review, Venue, VibeTag } from "@/types/venue";
 
-// Dados fictícios para desenvolvimento da UI, antes da integração com o
-// Firebase. Coordenadas aproximadas da região da Cidade Baixa (Porto
-// Alegre), mas nomes, endereços e reviews são inventados — não
-// representam parceiros reais.
+// Bares reais (nomes, bairros e endereços verificados) usados como dados
+// de desenvolvimento — mas hypeReports, reviews e coordenadas exatas são
+// sintéticos, não vêm de nenhuma integração com esses estabelecimentos.
 //
-// O hype exibido é a MÉDIA das avaliações dos últimos 30 minutos (ver
-// getCurrentHypeStatus em src/utils/hype.ts), por isso os timestamps
-// abaixo variam de propósito: dá pra ver o cálculo em ação —
-// "Bar do Zé" tem 2 avaliações recentes concordando (fica "Lotado");
-// "Espaço Beco" tem uma avaliação antiga e uma recente, e a recente
-// prevalece; "Casa Amarela" só tem avaliação de mais de 30 min atrás,
-// então cai no fallback "baseado na última atualização"; "Bendito Bar"
-// ainda não tem nenhuma avaliação, pra testar o estado vazio.
+// Os tempos das avaliações são propositalmente variados pra exercitar
+// getCurrentHypeStatus (src/utils/hype.ts): a janela de 30 min expande
+// pra 1h, 1h30 etc quando não há avaliação recente o suficiente.
+
+let hypeReportSeq = 0;
+function hr(minutesAgo: number, level: HypeLevel, authorName: string): HypeReport {
+  hypeReportSeq += 1;
+  return {
+    id: `hr-${hypeReportSeq}`,
+    authorName,
+    level,
+    createdAt: new Date(Date.now() - minutesAgo * 60 * 1000).toISOString(),
+  };
+}
+
+let reviewSeq = 0;
+function rv(
+  minutesAgo: number,
+  authorName: string,
+  rating: Rating,
+  vibeTags: VibeTag[],
+  comment: string
+): Review {
+  reviewSeq += 1;
+  return {
+    id: `rv-${reviewSeq}`,
+    authorName,
+    rating,
+    vibeTags,
+    comment,
+    createdAt: new Date(Date.now() - minutesAgo * 60 * 1000).toISOString(),
+  };
+}
+
+// Pequeno espalhamento de coordenadas pra os pins de uma mesma região
+// não caírem todos exatamente no mesmo ponto no mapa.
+const SCATTER = [
+  { dLat: 0, dLng: 0 },
+  { dLat: 0.0015, dLng: -0.001 },
+  { dLat: -0.001, dLng: 0.0018 },
+  { dLat: 0.0025, dLng: 0.0008 },
+  { dLat: -0.0018, dLng: -0.0022 },
+];
+
+function coords(baseLat: number, baseLng: number, index: number) {
+  const { dLat, dLng } = SCATTER[index % SCATTER.length];
+  return { latitude: baseLat + dLat, longitude: baseLng + dLng };
+}
+
 export const mockVenues: Venue[] = [
+  // ── Cidade Baixa, Porto Alegre ────────────────────────────────────
   {
-    id: "1",
-    name: "Bar do Zé",
+    id: "cb-1",
+    name: "Boteco do Joaquim",
     locationId: "cidade-baixa-poa",
-    address: "Rua João Alfredo, 412 — Cidade Baixa",
+    address: "Rua João Alfredo, 626 — Cidade Baixa",
     priceRange: "$$",
-    openingHours: "Ter a Dom, 18h às 02h",
-    latitude: -30.0407,
-    longitude: -51.2247,
-    hypeScore: 9.2,
-    vibeTags: ["samba", "para-dancar"],
+    openingHours: "Qui a Sáb, 18h30 às 01h",
+    ...coords(-30.0407, -51.2247, 0),
+    hypeScore: 8.8,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(25, "high", "Marina T."), hr(8, "high", "Diego S.")],
     reviews: [
-      {
-        id: "r1",
-        authorName: "Marina T.",
-        hypeLevel: "high",
-        rating: { music: 5, price: 4, service: 3.5, ambiance: 4.5 },
-        vibeTags: ["samba", "para-dancar"],
-        comment: "Roda de samba impecável, mas chega cedo que enche rápido.",
-        createdAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-      },
-      {
-        id: "r2",
-        authorName: "Diego S.",
-        hypeLevel: "high",
-        rating: { music: 4, price: 4, service: 3, ambiance: 4.5 },
-        vibeTags: ["samba"],
-        comment: "Atendimento podia ser mais rápido, mas a vibe compensa.",
-        createdAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
-      },
+      rv(
+        120,
+        "Marina T.",
+        { music: 4, price: 4, service: 3.5, ambiance: 4.5 },
+        ["para-conversar"],
+        "Picado do Joaquim é imperdível, ambiente de boteco raiz."
+      ),
     ],
     updatedAt: new Date().toISOString(),
   },
   {
-    id: "2",
-    name: "Quintal Music Bar",
+    id: "cb-2",
+    name: "Paralela",
     locationId: "cidade-baixa-poa",
-    address: "Av. José Bonifácio, 289 — Cidade Baixa",
-    priceRange: "$$",
-    openingHours: "Qui a Sáb, 19h às 03h",
-    latitude: -30.0398,
-    longitude: -51.2231,
-    hypeScore: 7.1,
-    vibeTags: ["rock", "para-conversar"],
-    reviews: [
-      {
-        id: "r3",
-        authorName: "Bruno L.",
-        hypeLevel: "medium",
-        rating: { music: 4.5, price: 3.5, service: 4, ambiance: 3.5 },
-        vibeTags: ["rock", "para-conversar"],
-        comment: "Banda cover de rock muito boa, som bem equilibrado.",
-        createdAt: new Date(Date.now() - 1000 * 60 * 22).toISOString(),
-      },
-    ],
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "3",
-    name: "Espaço Beco",
-    locationId: "cidade-baixa-poa",
-    address: "Travessa do Carmo, 77 — Cidade Baixa",
+    address: "Rua Lopo Gonçalves, 66 — Cidade Baixa",
     priceRange: "$$$",
-    openingHours: "Sex e Sáb, 22h às 05h",
-    latitude: -30.0415,
-    longitude: -51.226,
-    hypeScore: 4.5,
-    vibeTags: ["eletronica"],
+    openingHours: "Ter a Sáb, 19h às 00h",
+    ...coords(-30.0407, -51.2247, 1),
+    hypeScore: 7.4,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(22, "medium", "Bruno L.")],
     reviews: [
-      {
-        id: "r4",
-        authorName: "Carla M.",
-        hypeLevel: "low",
-        rating: { music: 4.5, price: 2, service: 3, ambiance: 4 },
-        vibeTags: ["eletronica"],
-        comment: "Line-up ótimo, mas preço da bebida pesa no bolso.",
-        createdAt: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
-      },
-      {
-        id: "r4b",
-        authorName: "Yuri P.",
-        hypeLevel: "medium",
-        rating: { music: 4, price: 2.5, service: 3, ambiance: 4 },
-        vibeTags: ["eletronica"],
-        comment: "Hoje tá mais tranquilo, dá pra conversar sem gritar.",
-        createdAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-      },
+      rv(
+        200,
+        "Bruno L.",
+        { music: 4, price: 3, service: 4, ambiance: 4.5 },
+        ["para-conversar"],
+        "Drinks autorais tipo o Dilmãe e o Gaga valem muito a pena."
+      ),
     ],
     updatedAt: new Date().toISOString(),
   },
   {
-    id: "4",
-    name: "Bendito Bar",
+    id: "cb-3",
+    name: "Matita Perê",
     locationId: "cidade-baixa-poa",
-    address: "Rua da República, 550 — Cidade Baixa",
-    priceRange: "$",
-    openingHours: "Seg a Dom, 17h às 00h",
-    latitude: -30.0389,
-    longitude: -51.2219,
-    hypeScore: 8.7,
-    vibeTags: ["samba", "para-conversar"],
+    address: "Cidade Baixa, Porto Alegre",
+    priceRange: "$$",
+    openingHours: "Qua a Sáb, 19h às 02h",
+    ...coords(-30.0407, -51.2247, 2),
+    hypeScore: 8.1,
+    vibeTags: ["samba", "para-dancar"],
+    hypeReports: [hr(40, "low", "Carla M."), hr(10, "medium", "Yuri P.")],
+    reviews: [
+      rv(
+        300,
+        "Carla M.",
+        { music: 4.5, price: 3.5, service: 3, ambiance: 4 },
+        ["samba"],
+        "Samba de raiz com mais de 100 rótulos de cachaça, imperdível."
+      ),
+      rv(
+        9,
+        "Yuri P.",
+        { music: 4, price: 3.5, service: 3.5, ambiance: 4 },
+        ["samba", "para-dancar"],
+        "Hoje a roda tá mais tranquila, dá pra curtir sem multidão."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cb-4",
+    name: "Sgt Peppers",
+    locationId: "cidade-baixa-poa",
+    address: "Cidade Baixa, Porto Alegre",
+    priceRange: "$$",
+    openingHours: "Sex e Sáb, 21h às 03h",
+    ...coords(-30.0407, -51.2247, 3),
+    hypeScore: 7.0,
+    vibeTags: ["rock"],
+    hypeReports: [],
     reviews: [],
     updatedAt: new Date().toISOString(),
   },
   {
-    id: "5",
-    name: "Casa Amarela",
+    id: "cb-5",
+    name: "Capone Drinkeria",
     locationId: "cidade-baixa-poa",
-    address: "Rua General Lima e Silva, 900 — Cidade Baixa",
-    priceRange: "$$",
-    openingHours: "Qua a Sáb, 18h às 02h",
-    latitude: -30.042,
-    longitude: -51.2273,
-    hypeScore: 6.4,
-    vibeTags: ["rock", "eletronica", "para-dancar"],
+    address: "Cidade Baixa, Porto Alegre",
+    priceRange: "$$$",
+    openingHours: "Qui a Sáb, 19h às 01h",
+    ...coords(-30.0407, -51.2247, 4),
+    hypeScore: 6.8,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(50, "medium", "Felipe R.")],
     reviews: [
-      {
-        id: "r5",
-        authorName: "Felipe R.",
-        hypeLevel: "medium",
-        rating: { music: 4, price: 3.5, service: 3.5, ambiance: 4.5 },
-        vibeTags: ["rock", "eletronica"],
-        comment: "Ambiente super versátil, agrada quem quer dançar e quem quer sentar.",
-        createdAt: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
-      },
+      rv(
+        50,
+        "Felipe R.",
+        { music: 3.5, price: 3, service: 4, ambiance: 4.5 },
+        ["para-conversar"],
+        "Coquetéis muito bem feitos, ambiente aconchegante pra happy hour."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+
+  // ── Bom Fim, Porto Alegre ─────────────────────────────────────────
+  {
+    id: "bf-1",
+    name: "Bar Ocidente",
+    locationId: "bom-fim-poa",
+    address: "Rua João Telles — Bom Fim",
+    priceRange: "$$",
+    openingHours: "Ter a Dom, 18h às 00h",
+    ...coords(-30.033, -51.214, 0),
+    hypeScore: 8.3,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(15, "medium", "Renata K.")],
+    reviews: [
+      rv(
+        180,
+        "Renata K.",
+        { music: 4, price: 3.5, service: 3.5, ambiance: 5 },
+        ["para-conversar"],
+        "Casarão histórico incrível, o Sarau Elétrico é imperdível."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "bf-2",
+    name: "Anexo 456",
+    locationId: "bom-fim-poa",
+    address: "Rua Fernandes Vieira, 456 — Bom Fim",
+    priceRange: "$$",
+    openingHours: "Qua a Sáb, 18h às 01h",
+    ...coords(-30.033, -51.214, 1),
+    hypeScore: 7.2,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(18, "medium", "Thiago A.")],
+    reviews: [
+      rv(
+        90,
+        "Thiago A.",
+        { music: 3.5, price: 4, service: 3.5, ambiance: 3.5 },
+        ["para-conversar"],
+        "Bom pra happy hour com os amigos, chope sempre gelado."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "bf-3",
+    name: "Bar João Bar e Bilhar",
+    locationId: "bom-fim-poa",
+    address: "Av. Osvaldo Aranha, 1026 — Bom Fim",
+    priceRange: "$",
+    openingHours: "Seg a Dom, 17h às 00h",
+    ...coords(-30.033, -51.214, 2),
+    hypeScore: 6.5,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(12, "low", "Paula S.")],
+    reviews: [
+      rv(
+        240,
+        "Paula S.",
+        { music: 3, price: 4.5, service: 3.5, ambiance: 3 },
+        ["para-conversar"],
+        "Point tradicional pra jogar sinuca e tomar uma cerveja."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "bf-4",
+    name: "Vermelho 23",
+    locationId: "bom-fim-poa",
+    address: "Rua Bento Figueiredo, 23 — Bom Fim",
+    priceRange: "$$",
+    openingHours: "Qui a Sáb, 19h às 02h",
+    ...coords(-30.033, -51.214, 3),
+    hypeScore: 7.6,
+    vibeTags: ["para-dancar"],
+    hypeReports: [hr(20, "high", "Gabriel N.")],
+    reviews: [
+      rv(
+        60,
+        "Gabriel N.",
+        { music: 4, price: 3.5, service: 4, ambiance: 4 },
+        ["para-dancar"],
+        "Pista pequena mas animada, boa seleção musical."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "bf-5",
+    name: "Lagom Brewery & Pub",
+    locationId: "bom-fim-poa",
+    address: "Bom Fim, Porto Alegre",
+    priceRange: "$$",
+    openingHours: "Ter a Sáb, 18h às 00h",
+    ...coords(-30.033, -51.214, 4),
+    hypeScore: 6.9,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(28, "medium", "Camila V.")],
+    reviews: [
+      rv(
+        120,
+        "Camila V.",
+        { music: 3, price: 3.5, service: 4, ambiance: 3.5 },
+        ["para-conversar"],
+        "Boa variedade de cerveja artesanal, ótimo pra fugir do centro."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+
+  // ── Moinhos de Vento, Porto Alegre ────────────────────────────────
+  {
+    id: "mv-1",
+    name: "Press",
+    locationId: "moinhos-poa",
+    address: "Rua Hilário Ribeiro, 281 — Moinhos de Vento",
+    priceRange: "$$$",
+    openingHours: "Todos os dias, 12h às 23h",
+    ...coords(-30.0247, -51.2064, 0),
+    hypeScore: 7.8,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(14, "medium", "Isabela F.")],
+    reviews: [
+      rv(
+        150,
+        "Isabela F.",
+        { music: 3.5, price: 3, service: 4.5, ambiance: 4.5 },
+        ["para-conversar"],
+        "O Hot Gin Tônica com maracujá e tabasco é surpreendente."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "mv-2",
+    name: "Al Coala",
+    locationId: "moinhos-poa",
+    address: "Rua Hilário Ribeiro, 287 — Moinhos de Vento",
+    priceRange: "$$",
+    openingHours: "Ter a Dom, 17h às 00h",
+    ...coords(-30.0247, -51.2064, 1),
+    hypeScore: 7.3,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(24, "medium", "Rodrigo M.")],
+    reviews: [
+      rv(
+        80,
+        "Rodrigo M.",
+        { music: 3.5, price: 4, service: 4, ambiance: 4 },
+        ["para-conversar"],
+        "Muitas torneiras de chope e hambúrguer bom pra quem não bebe."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "mv-3",
+    name: "Blink",
+    locationId: "moinhos-poa",
+    address: "Rua Comendador Caminha, 312 — Moinhos de Vento",
+    priceRange: "$$$",
+    openingHours: "Seg a Qui, 18h às 01h / Sex e Sáb, 18h às 04h",
+    ...coords(-30.0247, -51.2064, 2),
+    hypeScore: 8.9,
+    vibeTags: ["eletronica", "para-dancar"],
+    hypeReports: [hr(9, "high", "Larissa D.")],
+    reviews: [
+      rv(
+        30,
+        "Larissa D.",
+        { music: 4.5, price: 3, service: 4, ambiance: 5 },
+        ["eletronica", "para-dancar"],
+        "Decoração em neon linda, 29 drinks em torneira é diferenciado."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "mv-4",
+    name: "Calçada Bar",
+    locationId: "moinhos-poa",
+    address: "Rua Padre Chagas, 342 — Moinhos de Vento",
+    priceRange: "$$$",
+    openingHours: "Qua a Sáb, 18h às 01h",
+    ...coords(-30.0247, -51.2064, 3),
+    hypeScore: 7.5,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(35, "medium", "Eduardo P.")],
+    reviews: [
+      rv(
+        35,
+        "Eduardo P.",
+        { music: 4, price: 3, service: 4, ambiance: 4.5 },
+        ["para-conversar"],
+        "Coquetelaria autoral muito boa, luz baixa e som na medida."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "mv-5",
+    name: "Caminito Bar e Café",
+    locationId: "moinhos-poa",
+    address: "Rua Padre Chagas, 318 — Moinhos de Vento",
+    priceRange: "$$",
+    openingHours: "Seg a Sáb, 08h às 00h",
+    ...coords(-30.0247, -51.2064, 4),
+    hypeScore: 6.2,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(19, "low", "Beatriz L.")],
+    reviews: [
+      rv(
+        400,
+        "Beatriz L.",
+        { music: 3, price: 3.5, service: 4, ambiance: 3.5 },
+        ["para-conversar"],
+        "Ótimo de dia pro café, à noite fica mais tranquilo."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+
+  // ── Centro, Florianópolis ─────────────────────────────────────────
+  {
+    id: "fl-1",
+    name: "Botequim Floripa",
+    locationId: "centro-floripa",
+    address: "Centro, Florianópolis",
+    priceRange: "$$",
+    openingHours: "Ter a Sáb, 18h às 00h",
+    ...coords(-27.5954, -48.548, 0),
+    hypeScore: 8.0,
+    vibeTags: ["samba"],
+    hypeReports: [hr(16, "high", "Vitor H.")],
+    reviews: [
+      rv(
+        50,
+        "Vitor H.",
+        { music: 4.5, price: 3.5, service: 3.5, ambiance: 4 },
+        ["samba"],
+        "Aula de samba grátis e aquele clima de boteco antigo, show."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "fl-2",
+    name: "Bar do Noel",
+    locationId: "centro-floripa",
+    address: "Rua Tiradentes — Centro, Florianópolis",
+    priceRange: "$$",
+    openingHours: "Qui a Sáb, 19h às 01h",
+    ...coords(-27.5954, -48.548, 1),
+    hypeScore: 7.7,
+    vibeTags: ["samba"],
+    hypeReports: [hr(21, "medium", "Juliana R.")],
+    reviews: [
+      rv(
+        70,
+        "Juliana R.",
+        { music: 4, price: 3.5, service: 3.5, ambiance: 4 },
+        ["samba"],
+        "Roda de samba e choro que lembra os botecos cariocas de verdade."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "fl-3",
+    name: "La Cave Gastrobar",
+    locationId: "centro-floripa",
+    address: "Rua Demétrio Ribeiro, 51 — Centro, Florianópolis",
+    priceRange: "$$$",
+    openingHours: "Qui a Sáb, 18h às 00h",
+    ...coords(-27.5954, -48.548, 2),
+    hypeScore: 7.1,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(45, "medium", "Marcelo T.")],
+    reviews: [
+      rv(
+        45,
+        "Marcelo T.",
+        { music: 3.5, price: 2.5, service: 4.5, ambiance: 4.5 },
+        ["para-conversar"],
+        "Carta de vinhos excelente, música ao vivo nas sextas é um plus."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "fl-4",
+    name: "Bugio",
+    locationId: "centro-floripa",
+    address: "Rua Victor Meirelles, 112 — Centro, Florianópolis",
+    priceRange: "$$",
+    openingHours: "Qua a Sáb, 19h às 02h",
+    ...coords(-27.5954, -48.548, 3),
+    hypeScore: 7.9,
+    vibeTags: ["rock"],
+    hypeReports: [hr(11, "high", "Natália G.")],
+    reviews: [
+      rv(
+        20,
+        "Natália G.",
+        { music: 4.5, price: 3.5, service: 3.5, ambiance: 4 },
+        ["rock"],
+        "Casa de shows com pegada cultural, line-up de rock sempre bom."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "fl-5",
+    name: "Ponto Bar & Piadina",
+    locationId: "centro-floripa",
+    address: "Rua Victor Meirelles, 138 — Centro, Florianópolis",
+    priceRange: "$",
+    openingHours: "Seg a Sáb, 17h às 00h",
+    ...coords(-27.5954, -48.548, 4),
+    hypeScore: 6.4,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(27, "low", "Diego F.")],
+    reviews: [
+      rv(
+        300,
+        "Diego F.",
+        { music: 3, price: 4, service: 3.5, ambiance: 3.5 },
+        ["para-conversar"],
+        "Piadina é ótima pedida, bar de bairro sem frescura."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+
+  // ── Vila Madalena, São Paulo ──────────────────────────────────────
+  {
+    id: "vm-1",
+    name: "Cervejaria Nacional",
+    locationId: "vila-madalena-sp",
+    address: "Av. Pedroso de Morais, 604 — Vila Madalena",
+    priceRange: "$$",
+    openingHours: "Seg a Dom, 12h às 00h",
+    ...coords(-23.5505, -46.691, 0),
+    hypeScore: 8.2,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(13, "medium", "Amanda C.")],
+    reviews: [
+      rv(
+        100,
+        "Amanda C.",
+        { music: 3.5, price: 4, service: 4, ambiance: 4 },
+        ["para-conversar"],
+        "Cerveja de produção própria excelente, ambiente descontraído."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "vm-2",
+    name: "Salve Jorge",
+    locationId: "vila-madalena-sp",
+    address: "Rua Aspicuelta, 544 — Vila Madalena",
+    priceRange: "$$",
+    openingHours: "Ter a Dom, 17h às 01h",
+    ...coords(-23.5505, -46.691, 1),
+    hypeScore: 8.6,
+    vibeTags: ["para-dancar"],
+    hypeReports: [hr(7, "high", "Rafael B.")],
+    reviews: [
+      rv(
+        40,
+        "Rafael B.",
+        { music: 4, price: 3.5, service: 3.5, ambiance: 4.5 },
+        ["para-dancar"],
+        "Bar super badalado, sempre cheio mas vale a pena."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "vm-3",
+    name: "Bar do Beco",
+    locationId: "vila-madalena-sp",
+    address: "Rua Aspicuelta, 567 — Vila Madalena",
+    priceRange: "$$",
+    openingHours: "Qua a Dom, 17h às 00h",
+    ...coords(-23.5505, -46.691, 2),
+    hypeScore: 8.4,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(17, "high", "Camila O.")],
+    reviews: [
+      rv(
+        60,
+        "Camila O.",
+        { music: 3.5, price: 3.5, service: 3.5, ambiance: 5 },
+        ["para-conversar"],
+        "Quintal no Beco do Batman é lindo, paredes grafitadas incríveis."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "vm-4",
+    name: "Posto 6",
+    locationId: "vila-madalena-sp",
+    address: "Rua Aspicuelta, 644 — Vila Madalena",
+    priceRange: "$$",
+    openingHours: "Seg a Dom, 11h às 01h",
+    ...coords(-23.5505, -46.691, 3),
+    hypeScore: 8.0,
+    vibeTags: ["samba", "para-conversar"],
+    hypeReports: [hr(23, "medium", "Lucas M.")],
+    reviews: [
+      rv(
+        200,
+        "Lucas M.",
+        { music: 4, price: 3.5, service: 3.5, ambiance: 4 },
+        ["samba"],
+        "Eleito melhor bar de SP mais de uma vez, clima de boteco raiz."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "vm-5",
+    name: "SubAstor",
+    locationId: "vila-madalena-sp",
+    address: "Rua Delfina, 163 — Vila Madalena",
+    priceRange: "$$$",
+    openingHours: "Ter a Sáb, 19h às 01h",
+    ...coords(-23.5505, -46.691, 4),
+    hypeScore: 7.3,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(33, "low", "Fernanda Q.")],
+    reviews: [
+      rv(
+        500,
+        "Fernanda Q.",
+        { music: 3, price: 2.5, service: 4.5, ambiance: 5 },
+        ["para-conversar"],
+        "Speakeasy escondido no subsolo, drinks impecáveis, clima intimista."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+
+  // ── Lapa, Rio de Janeiro ──────────────────────────────────────────
+  {
+    id: "lp-1",
+    name: "Rio Scenarium",
+    locationId: "lapa-rj",
+    address: "Rua do Lavradio, 20 — Lapa",
+    priceRange: "$$$",
+    openingHours: "Ter a Sáb, 19h às 03h",
+    ...coords(-22.9133, -43.1797, 0),
+    hypeScore: 9.0,
+    vibeTags: ["samba", "para-dancar"],
+    hypeReports: [hr(6, "high", "Bianca S.")],
+    reviews: [
+      rv(
+        25,
+        "Bianca S.",
+        { music: 5, price: 3, service: 4, ambiance: 5 },
+        ["samba", "para-dancar"],
+        "Casarão do século 19 com samba, gafieira e chorinho, espetacular."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "lp-2",
+    name: "Carioca da Gema",
+    locationId: "lapa-rj",
+    address: "Av. Mem de Sá, 79 — Lapa",
+    priceRange: "$$",
+    openingHours: "Seg a Sáb, 19h às 02h",
+    ...coords(-22.9133, -43.1797, 1),
+    hypeScore: 8.5,
+    vibeTags: ["samba"],
+    hypeReports: [hr(10, "high", "Pedro A.")],
+    reviews: [
+      rv(
+        35,
+        "Pedro A.",
+        { music: 4.5, price: 3.5, service: 3.5, ambiance: 4 },
+        ["samba"],
+        "Samba autêntico todo santo dia, referência da Lapa."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "lp-3",
+    name: "Semente",
+    locationId: "lapa-rj",
+    address: "Lapa, Rio de Janeiro",
+    priceRange: "$$",
+    openingHours: "Qui a Sáb, 20h às 02h",
+    ...coords(-22.9133, -43.1797, 2),
+    hypeScore: 8.1,
+    vibeTags: ["samba"],
+    hypeReports: [hr(20, "medium", "Juliana P.")],
+    reviews: [
+      rv(
+        90,
+        "Juliana P.",
+        { music: 4.5, price: 3.5, service: 3.5, ambiance: 4 },
+        ["samba"],
+        "Point histórico do choro e samba, revelou muita gente boa."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "lp-4",
+    name: "Bar Brasil",
+    locationId: "lapa-rj",
+    address: "Lapa, Rio de Janeiro",
+    priceRange: "$$",
+    openingHours: "Seg a Sáb, 11h às 00h",
+    ...coords(-22.9133, -43.1797, 3),
+    hypeScore: 7.4,
+    vibeTags: ["para-conversar"],
+    hypeReports: [hr(29, "medium", "Otávio R.")],
+    reviews: [
+      rv(
+        150,
+        "Otávio R.",
+        { music: 3.5, price: 4, service: 3.5, ambiance: 4 },
+        ["para-conversar"],
+        "Mais de 60 anos de história, caipirinha das melhores da Lapa."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "lp-5",
+    name: "Choperia Brazooka",
+    locationId: "lapa-rj",
+    address: "Lapa, Rio de Janeiro",
+    priceRange: "$$",
+    openingHours: "Qui a Sáb, 19h às 03h",
+    ...coords(-22.9133, -43.1797, 4),
+    hypeScore: 7.8,
+    vibeTags: ["samba", "para-dancar"],
+    hypeReports: [hr(31, "high", "Talita M.")],
+    reviews: [
+      rv(
+        31,
+        "Talita M.",
+        { music: 4, price: 3.5, service: 3, ambiance: 4 },
+        ["samba", "para-dancar"],
+        "Roda de samba e sambokê animadíssimos, uma das maiores choperias da Lapa."
+      ),
     ],
     updatedAt: new Date().toISOString(),
   },

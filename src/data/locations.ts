@@ -1,8 +1,8 @@
 import type { CityLocation } from "@/types/location";
 
-// Cidade Baixa é a única região com parceiros reais no MVP (README).
-// As demais entram como "em breve" — já dá pra buscar/selecionar, só
-// não tem bares cadastrados ainda. Ajuda a validar a expansão futura.
+// Todas as regiões abaixo já têm bares reais cadastrados (ver
+// mockVenues.ts) — a estratégia de lançamento do README foca a
+// Cidade Baixa primeiro, mas o app já suporta múltiplas regiões.
 export const locations: CityLocation[] = [
   {
     id: "cidade-baixa-poa",
@@ -16,35 +16,35 @@ export const locations: CityLocation[] = [
     neighborhood: "Bom Fim",
     city: "Porto Alegre",
     state: "RS",
-    available: false,
+    available: true,
   },
   {
     id: "moinhos-poa",
     neighborhood: "Moinhos de Vento",
     city: "Porto Alegre",
     state: "RS",
-    available: false,
+    available: true,
   },
   {
     id: "centro-floripa",
     neighborhood: "Centro",
     city: "Florianópolis",
     state: "SC",
-    available: false,
+    available: true,
   },
   {
     id: "vila-madalena-sp",
     neighborhood: "Vila Madalena",
     city: "São Paulo",
     state: "SP",
-    available: false,
+    available: true,
   },
   {
     id: "lapa-rj",
     neighborhood: "Lapa",
     city: "Rio de Janeiro",
     state: "RJ",
-    available: false,
+    available: true,
   },
 ];
 
