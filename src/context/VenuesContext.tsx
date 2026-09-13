@@ -1,11 +1,12 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
 import { mockVenues } from "@/data/mockVenues";
-import type { HypeLevel, Venue } from "@/types/venue";
+import type { HypeLevel, Review, Venue } from "@/types/venue";
 
 interface VenuesContextValue {
   venues: Venue[];
   updateHypeLevel: (id: string, hypeLevel: HypeLevel) => void;
+  addReview: (id: string, review: Omit<Review, "id" | "createdAt">) => void;
 }
 
 const VenuesContext = createContext<VenuesContextValue | undefined>(undefined);
@@ -26,7 +27,20 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const value = useMemo(() => ({ venues, updateHypeLevel }), [venues]);
+  const addReview = (id: string, review: Omit<Review, "id" | "createdAt">) => {
+    const newReview: Review = {
+      ...review,
+      id: `${id}-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setVenues((prev) =>
+      prev.map((venue) =>
+        venue.id === id ? { ...venue, reviews: [newReview, ...venue.reviews] } : venue
+      )
+    );
+  };
+
+  const value = useMemo(() => ({ venues, updateHypeLevel, addReview }), [venues]);
 
   return <VenuesContext.Provider value={value}>{children}</VenuesContext.Provider>;
 }

@@ -4,9 +4,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { VenueCard } from "@/components/VenueCard";
 import { useVenues } from "@/context/VenuesContext";
 import { colors } from "@/theme/colors";
+import { fontFamily } from "@/theme/typography";
 
 export default function ListaScreen() {
-  const { venues, updateHypeLevel } = useVenues();
+  const { venues } = useVenues();
 
   // Ranking: mais "hype" primeiro.
   const ranked = [...venues].sort((a, b) => b.hypeScore - a.hypeScore);
@@ -14,7 +15,10 @@ export default function ListaScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.title}>🍻 HypeApp</Text>
+        <View style={styles.wordmarkRow}>
+          <View style={styles.wordmarkDot} />
+          <Text style={styles.wordmark}>HYPEAPP</Text>
+        </View>
         <Text style={styles.subtitle}>Ranking da Cidade Baixa agora</Text>
       </View>
 
@@ -22,12 +26,7 @@ export default function ListaScreen() {
         data={ranked}
         keyExtractor={(venue) => venue.id}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <VenueCard
-            venue={item}
-            onUpdateHype={(level) => updateHypeLevel(item.id, level)}
-          />
-        )}
+        renderItem={({ item }) => <VenueCard venue={item} />}
       />
     </SafeAreaView>
   );
@@ -40,17 +39,32 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
-    gap: 2,
+    paddingTop: 16,
+    paddingBottom: 12,
+    gap: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
+  wordmarkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  wordmarkDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
+  },
+  wordmark: {
+    fontSize: 20,
+    fontFamily: fontFamily.display,
     color: colors.text,
+    letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 13,
+    fontFamily: fontFamily.body,
     color: colors.textMuted,
   },
   list: {
