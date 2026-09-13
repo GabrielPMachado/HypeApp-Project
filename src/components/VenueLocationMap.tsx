@@ -41,7 +41,10 @@ export function VenueLocationMap({ latitude, longitude }: VenueLocationMapProps)
     `https://maps.geoapify.com/v1/staticmap?style=osm-carto` +
     `&width=${MAP_WIDTH}&height=${MAP_HEIGHT * 2}` +
     `&center=lonlat:${longitude},${latitude}&zoom=15` +
-    `&marker=lonlat:${longitude},${latitude};color:%23E8B24D;size:large` +
+    // A API do Geoapify só aceita a cor em minúsculas — "%23E8B24D"
+    // (maiúsculo) devolve 400 "does not match any of the allowed types";
+    // "%23e8b24d" funciona. Confirmado testando as duas via fetch direto.
+    `&marker=lonlat:${longitude},${latitude};color:%23e8b24d;size:large` +
     `&apiKey=${GEOAPIFY_API_KEY}`;
 
   const openInMaps = () => {
