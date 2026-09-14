@@ -178,9 +178,14 @@ function TagsRow({ leading, tags }: TagsRowProps) {
           <View
             key={tag}
             style={styles.tag}
-            onLayout={(event) =>
-              setTagWidths((prev) => ({ ...prev, [tag]: event.nativeEvent.layout.width }))
-            }
+            onLayout={(event) => {
+              // Precisa ler a largura AQUI, fora do updater de função —
+              // o React já recicla/anula esse evento sintético antes de
+              // (prev) => {...} rodar, então event.nativeEvent lá dentro
+              // vem null (o aviso "synthetic event is reused" é exatamente isso).
+              const width = event.nativeEvent.layout.width;
+              setTagWidths((prev) => ({ ...prev, [tag]: width }));
+            }}
           >
             <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
           </View>
