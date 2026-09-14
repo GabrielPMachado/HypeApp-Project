@@ -70,6 +70,12 @@ export const mockVenues: Venue[] = [
       hr(8, 9, "Diego S."),
       hr(7, 6.7, "Elisa O."),
       hr(2, 5, "Eduardo K."),
+      hr(40, 8.2, "João N."),
+      hr(3, 10, "Fernanda G."),
+      hr(10, 8, "Juliana P."),
+      hr(1, 0.4, "Bianca K."),
+      hr(7, 5.9, "Gustavo I."),
+      hr(30, 1.1, "Diego W."),
     ],
     reviews: [
       rv(
@@ -97,6 +103,12 @@ export const mockVenues: Venue[] = [
       hr(32, 1.6, "Quesia E."),
       hr(17, 8.9, "Pedro K."),
       hr(21, 7.5, "Mariana V."),
+      hr(2, 0.6, "Renata Y."),
+      hr(29, 8.3, "João G."),
+      hr(31, 1.5, "William X."),
+      hr(4, 8.2, "Otávio I."),
+      hr(2, 9.5, "Lucas O."),
+      hr(15, 3.5, "Helena O."),
     ],
     reviews: [
       rv(
@@ -125,6 +137,12 @@ export const mockVenues: Venue[] = [
       hr(29, 4.7, "Pedro U."),
       hr(12, 5.6, "Gustavo J."),
       hr(22, 6.3, "Olívia K."),
+      hr(35, 3.3, "Vanessa R."),
+      hr(38, 9.2, "Lucas M."),
+      hr(13, 1.3, "Zeca X."),
+      hr(28, 9.6, "Thiago I."),
+      hr(2, 9.9, "Vanessa Y."),
+      hr(1, 4.1, "Ana F."),
     ],
     reviews: [
       rv(
@@ -158,6 +176,12 @@ export const mockVenues: Venue[] = [
       hr(6, 5.6, "Rafael W."),
       hr(29, 2.1, "Quesia K."),
       hr(7, 3.5, "Vanessa P."),
+      hr(24, 5.1, "Helena Y."),
+      hr(24, 2.3, "Fernanda U."),
+      hr(3, 8, "Mariana A."),
+      hr(41, 5.2, "Sabrina P."),
+      hr(34, 7.1, "Olívia J."),
+      hr(33, 0.2, "Isabela G."),
     ],
     reviews: [],
     updatedAt: new Date().toISOString(),
@@ -176,6 +200,12 @@ export const mockVenues: Venue[] = [
       hr(50, 5, "Felipe R."),
       hr(1, 2.8, "Henrique Q."),
       hr(11, 9.4, "Mariana I."),
+      hr(33, 3.6, "Felipe F."),
+      hr(16, 8.5, "Thiago F."),
+      hr(37, 4.2, "Thiago M."),
+      hr(17, 3.8, "Fernanda H."),
+      hr(43, 0, "Olívia M."),
+      hr(18, 3.5, "Renata L."),
     ],
     reviews: [
       rv(
