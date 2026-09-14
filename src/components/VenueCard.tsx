@@ -56,13 +56,10 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
           </Text>
         </View>
 
-        {/* Coluna com tudo relacionado ao ranking: posição, nota de hype
-            e, embaixo de ambos, quantas pessoas já avaliaram até agora. */}
+        {/* Coluna com a nota de hype e, embaixo dela, quantas pessoas já
+            avaliaram até agora — a posição no ranking já fica clara pela
+            ordem da lista, sem precisar repetir um número no card. */}
         <View style={styles.rankColumn}>
-          <View style={[styles.rankBadge, isLeader && styles.rankBadgeLeader]}>
-            <Text style={[styles.rankText, isLeader && styles.rankTextLeader]}>{rank}</Text>
-          </View>
-
           <View style={styles.scorePill}>
             <Feather name="zap" size={12} color={colors.accent} />
             <Text style={styles.scoreText}>{(hypeStatus?.score ?? venue.hypeScore).toFixed(1)}</Text>
@@ -153,29 +150,6 @@ const styles = StyleSheet.create({
   rankColumn: {
     alignItems: "center",
     gap: 5,
-  },
-  rankBadge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    paddingHorizontal: 4,
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rankBadgeLeader: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  rankText: {
-    fontSize: 11,
-    fontFamily: fontFamily.bodySemiBold,
-    color: colors.textMuted,
-  },
-  rankTextLeader: {
-    color: colors.background,
   },
   reportCountBadge: {
     flexDirection: "row",
