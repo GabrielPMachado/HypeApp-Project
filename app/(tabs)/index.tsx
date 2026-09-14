@@ -46,6 +46,12 @@ export default function ListaScreen() {
           </Text>
           <Feather name="chevron-down" size={14} color={colors.textFaint} />
         </Pressable>
+
+        {ranked.length > 0 && (
+          <Text style={styles.subtitle}>
+            Ranking de agora · {ranked.length} {ranked.length === 1 ? "local" : "locais"}
+          </Text>
+        )}
       </View>
 
       {ranked.length === 0 ? (
@@ -68,9 +74,10 @@ export default function ListaScreen() {
           keyExtractor={(venue) => venue.id}
           contentContainerStyle={styles.list}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <VenueCard
               venue={item}
+              rank={index + 1}
               onPress={() => {
                 setSelectedVenueId(item.id);
                 setSheetOpen(true);
@@ -146,6 +153,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.bodyMedium,
     color: colors.text,
+  },
+  subtitle: {
+    fontSize: 12,
+    fontFamily: fontFamily.body,
+    color: colors.textFaint,
   },
   list: {
     padding: 20,

@@ -14,23 +14,44 @@ import { getAggregateVibeTags } from "@/utils/vibeTags";
 
 interface VenueCardProps {
   venue: Venue;
+  rank: number;
   onPress: () => void;
 }
 
-export function VenueCard({ venue, onPress }: VenueCardProps) {
+export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
   const hypeStatus = getCurrentHypeStatus(venue.hypeReports);
   const aggregateRating = getAggregateRating(venue.reviews);
   const vibeTags = getAggregateVibeTags(venue);
+  const isLeader = rank === 1;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        isLeader && styles.cardLeader,
+        pressed && styles.cardPressed,
+      ]}
+    >
+      {isLeader && (
+        <View style={styles.leaderBadge}>
+          <Feather name="trending-up" size={11} color={colors.background} />
+          <Text style={styles.leaderBadgeText}>Mais quente agora</Text>
+        </View>
+      )}
+
       <View style={styles.headerRow}>
-        <VenueAvatar
-          name={venue.name}
-          logoUrl={venue.logoUrl}
-          vibeTag={venue.vibeTags[0]}
-          size={52}
-        />
+        <View style={styles.avatarWrap}>
+          <VenueAvatar
+            name={venue.name}
+            logoUrl={venue.logoUrl}
+            vibeTag={venue.vibeTags[0]}
+            size={52}
+          />
+          <View style={[styles.rankBadge, isLeader && styles.rankBadgeLeader]}>
+            <Text style={[styles.rankText, isLeader && styles.rankTextLeader]}>{rank}</Text>
+          </View>
+        </View>
 
         <Text style={styles.name} numberOfLines={1}>
           {venue.name}
@@ -90,13 +111,64 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
+  cardLeader: {
+    borderColor: colors.accent,
+    borderWidth: 1.5,
+  },
   cardPressed: {
     opacity: 0.85,
+  },
+  leaderBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 5,
+    backgroundColor: colors.accent,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: -2,
+  },
+  leaderBadgeText: {
+    fontSize: 10,
+    fontFamily: fontFamily.bodySemiBold,
+    color: colors.background,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
+  },
+  avatarWrap: {
+    position: "relative",
+  },
+  rankBadge: {
+    position: "absolute",
+    top: -6,
+    left: -6,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 4,
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rankBadgeLeader: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  rankText: {
+    fontSize: 11,
+    fontFamily: fontFamily.bodySemiBold,
+    color: colors.textMuted,
+  },
+  rankTextLeader: {
+    color: colors.background,
   },
   name: {
     flex: 1,
