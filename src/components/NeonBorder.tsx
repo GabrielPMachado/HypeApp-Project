@@ -31,9 +31,20 @@ export function NeonBorder({ active, borderRadius, borderWidth = 2, children }: 
   const rotation = useSharedValue(0);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      rotation.value = 0; // solta o ângulo (e cancela o loop) se deixar de ser líder
+      return;
+    }
     rotation.value = withRepeat(withTiming(360, { duration: 3200, easing: Easing.linear }), -1);
   }, [active, rotation]);
+
+  // useAnimatedStyle precisa rodar em TODO render, senão o número de
+  // hooks muda quando "active" alterna (ex: o ranking reordena e outro
+  // local vira líder) — React acusa "Rendered more hooks than during
+  // the previous render" se esse hook vier depois de um return condicional.
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
 
   if (!active) return <>{children}</>;
 
@@ -41,10 +52,6 @@ export function NeonBorder({ active, borderRadius, borderWidth = 2, children }: 
     const { width, height } = event.nativeEvent.layout;
     setSize({ width, height });
   };
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
 
   // O anel precisa cobrir a diagonal inteira do retângulo em qualquer
   // ângulo de rotação, não só a maior dimensão.
