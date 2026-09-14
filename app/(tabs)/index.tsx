@@ -10,6 +10,15 @@ import { useLocation } from "@/context/LocationContext";
 import { useVenues } from "@/context/VenuesContext";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
+import { getCurrentHypeStatus } from "@/utils/hype";
+
+// Nota usada pro ranking: a média real dos reports quando existir,
+// senão a nota semente. É a mesma regra exibida no card (ver
+// VenueCard/VenueDetailSheet) — assim a posição no ranking sempre
+// bate com o número que a pessoa está vendo.
+function rankingScore(venue: { hypeScore: number; hypeReports: Parameters<typeof getCurrentHypeStatus>[0] }) {
+  return getCurrentHypeStatus(venue.hypeReports)?.score ?? venue.hypeScore;
+}
 
 export default function ListaScreen() {
   const { venues } = useVenues();
@@ -18,10 +27,12 @@ export default function ListaScreen() {
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [isSheetOpen, setSheetOpen] = useState(false);
 
-  // Ranking: só os locais da região selecionada, mais "hype" primeiro.
+  // Ranking: só os locais da região selecionada, mais "hype" primeiro —
+  // reordena a cada novo report, porque a nota usada é a mesma que
+  // aparece no card (rankingScore), não a semente fixa.
   const ranked = venues
     .filter((venue) => venue.locationId === location.id)
-    .sort((a, b) => b.hypeScore - a.hypeScore);
+    .sort((a, b) => rankingScore(b) - rankingScore(a));
 
   // Busca sempre a versão mais recente do venue (não uma cópia
   // congelada no momento do toque), pra a folha refletir avaliações
