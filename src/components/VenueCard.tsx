@@ -40,25 +40,12 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
       )}
 
       <View style={styles.headerRow}>
-        <View style={styles.avatarWrap}>
-          <VenueAvatar
-            name={venue.name}
-            logoUrl={venue.logoUrl}
-            vibeTag={venue.vibeTags[0]}
-            size={52}
-          />
-          <View style={[styles.rankBadge, isLeader && styles.rankBadgeLeader]}>
-            <Text style={[styles.rankText, isLeader && styles.rankTextLeader]}>{rank}</Text>
-          </View>
-
-          {/* Espelha o badge do rank no canto de baixo — quantas pessoas já
-              deram um "hype agora" nesse local, sem filtro de janela (é o
-              total até agora, não só os que entram na média atual). */}
-          <View style={styles.reportCountBadge}>
-            <View style={styles.reportCountDot} />
-            <Text style={styles.reportCountText}>{venue.hypeReports.length}</Text>
-          </View>
-        </View>
+        <VenueAvatar
+          name={venue.name}
+          logoUrl={venue.logoUrl}
+          vibeTag={venue.vibeTags[0]}
+          size={52}
+        />
 
         <View style={styles.identityText}>
           <Text style={styles.name} numberOfLines={1}>
@@ -69,9 +56,22 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
           </Text>
         </View>
 
-        <View style={styles.scorePill}>
-          <Feather name="zap" size={12} color={colors.accent} />
-          <Text style={styles.scoreText}>{(hypeStatus?.score ?? venue.hypeScore).toFixed(1)}</Text>
+        {/* Coluna com tudo relacionado ao ranking: posição, nota de hype
+            e, embaixo de ambos, quantas pessoas já avaliaram até agora. */}
+        <View style={styles.rankColumn}>
+          <View style={[styles.rankBadge, isLeader && styles.rankBadgeLeader]}>
+            <Text style={[styles.rankText, isLeader && styles.rankTextLeader]}>{rank}</Text>
+          </View>
+
+          <View style={styles.scorePill}>
+            <Feather name="zap" size={12} color={colors.accent} />
+            <Text style={styles.scoreText}>{(hypeStatus?.score ?? venue.hypeScore).toFixed(1)}</Text>
+          </View>
+
+          <View style={styles.reportCountBadge}>
+            <View style={styles.reportCountDot} />
+            <Text style={styles.reportCountText}>{venue.hypeReports.length}</Text>
+          </View>
         </View>
       </View>
 
@@ -150,13 +150,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
   },
-  avatarWrap: {
-    position: "relative",
+  rankColumn: {
+    alignItems: "center",
+    gap: 5,
   },
   rankBadge: {
-    position: "absolute",
-    top: -6,
-    left: -6,
     minWidth: 20,
     height: 20,
     borderRadius: 10,
@@ -180,9 +178,6 @@ const styles = StyleSheet.create({
     color: colors.background,
   },
   reportCountBadge: {
-    position: "absolute",
-    bottom: -6,
-    left: -6,
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
