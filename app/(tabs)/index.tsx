@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -26,6 +26,18 @@ export default function ListaScreen() {
   const [isPickerOpen, setPickerOpen] = useState(false);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [isSheetOpen, setSheetOpen] = useState(false);
+
+  // getCurrentHypeStatus depende do relógio (a janela de 30min/1h/1h30
+  // progressiva e o "há quanto tempo" do último report) — sem re-render,
+  // o app só recalcula isso quando algo mais dispara um (um toque, um
+  // novo report). Esse "tick" força um re-render por segundo pra quem
+  // só está olhando a lista ver a nota, o selo e o ranking se ajustarem
+  // sozinhos conforme os reports envelhecem, sem precisar tocar em nada.
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => forceTick((tick) => tick + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Ranking: só os locais da região selecionada, mais "hype" primeiro —
   // reordena a cada novo report, porque a nota usada é a mesma que
