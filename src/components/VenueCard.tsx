@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { HypeBadge } from "@/components/HypeBadge";
+import { NeonBorder } from "@/components/NeonBorder";
 import { VenueAvatar } from "@/components/VenueAvatar";
 import { VIBE_TAG_LABELS } from "@/constants/vibeTags";
 import { colors } from "@/theme/colors";
@@ -22,14 +23,15 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
   const isLeader = rank === 1;
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        isLeader && styles.cardLeader,
-        pressed && styles.cardPressed,
-      ]}
-    >
+    <NeonBorder active={isLeader} borderRadius={18} borderWidth={2}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.card,
+          isLeader && styles.cardLeaderInner,
+          pressed && styles.cardPressed,
+        ]}
+      >
       {isLeader && (
         <View style={styles.leaderBadge}>
           <Feather name="trending-up" size={11} color={colors.background} />
@@ -44,7 +46,6 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
             logoUrl={venue.logoUrl}
             vibeTag={venue.vibeTags[0]}
             size={52}
-            neon={isLeader}
           />
           <View style={[styles.rankBadge, isLeader && styles.rankBadgeLeader]}>
             <Text style={[styles.rankText, isLeader && styles.rankTextLeader]}>{rank}</Text>
@@ -94,7 +95,8 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
         <View style={{ flex: 1 }} />
         <Feather name="chevron-right" size={16} color={colors.textFaint} />
       </View>
-    </Pressable>
+      </Pressable>
+    </NeonBorder>
   );
 }
 
@@ -112,9 +114,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  cardLeader: {
-    borderColor: colors.accent,
-    borderWidth: 1.5,
+  // Quando é o líder, o card fica dentro de um NeonBorder — a própria
+  // borda estática vira supérflua (o anel giratório já demarca o card).
+  cardLeaderInner: {
+    borderWidth: 0,
   },
   cardPressed: {
     opacity: 0.85,
