@@ -50,6 +50,14 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
           <View style={[styles.rankBadge, isLeader && styles.rankBadgeLeader]}>
             <Text style={[styles.rankText, isLeader && styles.rankTextLeader]}>{rank}</Text>
           </View>
+
+          {/* Espelha o badge do rank no canto de baixo — quantas pessoas já
+              deram um "hype agora" nesse local, sem filtro de janela (é o
+              total até agora, não só os que entram na média atual). */}
+          <View style={styles.reportCountBadge}>
+            <View style={styles.reportCountDot} />
+            <Text style={styles.reportCountText}>{venue.hypeReports.length}</Text>
+          </View>
         </View>
 
         <View style={styles.identityText}>
@@ -170,6 +178,32 @@ const styles = StyleSheet.create({
   },
   rankTextLeader: {
     color: colors.background,
+  },
+  reportCountBadge: {
+    position: "absolute",
+    bottom: -6,
+    left: -6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    minWidth: 20,
+    height: 16,
+    borderRadius: 999,
+    paddingHorizontal: 5,
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  reportCountDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.hypeLow,
+  },
+  reportCountText: {
+    fontSize: 9,
+    fontFamily: fontFamily.bodySemiBold,
+    color: colors.hypeLow,
   },
   identityText: {
     flex: 1,
