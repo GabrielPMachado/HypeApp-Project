@@ -2,14 +2,12 @@ import { Feather } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { HypeBadge } from "@/components/HypeBadge";
-import { RatingStars } from "@/components/RatingStars";
 import { VenueAvatar } from "@/components/VenueAvatar";
 import { VIBE_TAG_LABELS } from "@/constants/vibeTags";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { Venue } from "@/types/venue";
 import { getCurrentHypeStatus } from "@/utils/hype";
-import { getAggregateRating, getOverallRating } from "@/utils/rating";
 import { getAggregateVibeTags } from "@/utils/vibeTags";
 
 interface VenueCardProps {
@@ -20,7 +18,6 @@ interface VenueCardProps {
 
 export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
   const hypeStatus = getCurrentHypeStatus(venue.hypeReports);
-  const aggregateRating = getAggregateRating(venue.reviews);
   const vibeTags = getAggregateVibeTags(venue);
   const isLeader = rank === 1;
 
@@ -75,21 +72,6 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
             <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
           </View>
         ))}
-      </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.footerRow}>
-        {aggregateRating ? (
-          <>
-            <RatingStars value={getOverallRating(aggregateRating)} size={13} />
-            <Text style={styles.footerText}>
-              {venue.reviews.length} {venue.reviews.length === 1 ? "avaliação" : "avaliações"}
-            </Text>
-          </>
-        ) : (
-          <Text style={styles.footerText}>Sem avaliações ainda</Text>
-        )}
         <View style={{ flex: 1 }} />
         <Feather name="chevron-right" size={16} color={colors.textFaint} />
       </View>
@@ -199,6 +181,7 @@ const styles = StyleSheet.create({
   tagsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
+    alignItems: "center",
     gap: 6,
   },
   tag: {
@@ -214,19 +197,5 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.4,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.borderStrong,
-  },
-  footerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  footerText: {
-    fontSize: 12,
-    fontFamily: fontFamily.body,
-    color: colors.textMuted,
   },
 });
