@@ -1,11 +1,11 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
 import { mockVenues } from "@/data/mockVenues";
-import type { HypeLevel, HypeReport, Review, Venue } from "@/types/venue";
+import type { HypeReport, Review, Venue } from "@/types/venue";
 
 interface VenuesContextValue {
   venues: Venue[];
-  addHypeReport: (id: string, level: HypeLevel) => void;
+  addHypeReport: (id: string, score: number) => void;
   addReview: (id: string, review: Omit<Review, "id" | "createdAt">) => void;
   setVenueLogo: (id: string, logoUrl: string) => void;
 }
@@ -22,11 +22,11 @@ const VenuesContext = createContext<VenuesContextValue | undefined>(undefined);
 export function VenuesProvider({ children }: { children: ReactNode }) {
   const [venues, setVenues] = useState<Venue[]>(mockVenues);
 
-  const addHypeReport = (id: string, level: HypeLevel) => {
+  const addHypeReport = (id: string, score: number) => {
     const newReport: HypeReport = {
       id: `${id}-hr-${Date.now()}`,
       authorName: "Você",
-      level,
+      score,
       createdAt: new Date().toISOString(),
     };
     setVenues((prev) =>

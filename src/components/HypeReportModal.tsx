@@ -1,40 +1,56 @@
 import { Feather } from "@expo/vector-icons";
+import Slider from "@react-native-community/slider";
 import { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { StatusSegmentedControl } from "@/components/StatusSegmentedControl";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { HypeLevel } from "@/types/venue";
+import { scoreToLevel } from "@/utils/hype";
+
+const LEVEL_LABELS: Record<HypeLevel, string> = {
+  low: "De boas",
+  medium: "Movimentado",
+  high: "Lotado",
+};
+
+const LEVEL_TONES: Record<HypeLevel, string> = {
+  low: colors.hypeLow,
+  medium: colors.hypeMedium,
+  high: colors.hypeHigh,
+};
 
 interface HypeReportModalProps {
   visible: boolean;
   venueName: string;
-  currentHypeLevel: HypeLevel;
+  currentHypeScore: number;
   onClose: () => void;
-  onSubmit: (level: HypeLevel) => void;
+  onSubmit: (score: number) => void;
 }
 
 // Avaliação "de hype": rápida, só o status de agora — o oposto da
-// avaliação fixa (EvaluationModal). Existe pra permitir o toque rápido
-// de "como tá aqui agora" sem precisar passar por nota de música, preço
-// etc. toda vez.
+// avaliação fixa (EvaluationModal). O usuário dá uma nota de 0 a 10 no
+// deslizador pro quão cheio/animado o local está, em vez de escolher
+// entre categorias fixas — mais expressivo e é a própria nota que
+// alimenta a média exibida como "hype agora" (ver getCurrentHypeStatus).
 export function HypeReportModal({
   visible,
   venueName,
-  currentHypeLevel,
+  currentHypeScore,
   onClose,
   onSubmit,
 }: HypeReportModalProps) {
-  const [level, setLevel] = useState<HypeLevel>(currentHypeLevel);
+  const [score, setScore] = useState(Math.round(currentHypeScore));
+  const level = scoreToLevel(score);
+  const tone = LEVEL_TONES[level];
 
   const handleClose = () => {
-    setLevel(currentHypeLevel);
+    setScore(Math.round(currentHypeScore));
     onClose();
   };
 
   const handleSubmit = () => {
-    onSubmit(level);
+    onSubmit(score);
     onClose();
   };
 
@@ -55,7 +71,27 @@ export function HypeReportModal({
             </Pressable>
           </View>
 
-          <StatusSegmentedControl value={level} onChange={setLevel} />
+          <View style={styles.scoreDisplay}>
+            <Text style={[styles.scoreNumber, { color: tone }]}>{score}</Text>
+            <Text style={[styles.scoreLevel, { color: tone }]}>{LEVEL_LABELS[level]}</Text>
+          </View>
+
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={10}
+            step={1}
+            value={score}
+            onValueChange={setScore}
+            minimumTrackTintColor={tone}
+            maximumTrackTintColor={colors.borderStrong}
+            thumbTintColor={tone}
+          />
+
+          <View style={styles.sliderLabels}>
+            <Text style={styles.sliderLabelText}>Vazio</Text>
+            <Text style={styles.sliderLabelText}>Lotado</Text>
+          </View>
 
           <Pressable
             onPress={handleSubmit}
@@ -84,7 +120,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     padding: 20,
     paddingBottom: 32,
-    gap: 16,
+    gap: 8,
   },
   handle: {
     alignSelf: "center",
@@ -92,18 +128,49 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.borderStrong,
+    marginBottom: 8,
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     gap: 12,
+    marginBottom: 8,
   },
   title: {
     flex: 1,
     fontSize: 17,
     fontFamily: fontFamily.display,
     color: colors.text,
+  },
+  scoreDisplay: {
+    alignItems: "center",
+    gap: 2,
+    marginBottom: 4,
+  },
+  scoreNumber: {
+    fontSize: 40,
+    fontFamily: fontFamily.display,
+  },
+  scoreLevel: {
+    fontSize: 13,
+    fontFamily: fontFamily.bodySemiBold,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  slider: {
+    width: "100%",
+    height: 36,
+  },
+  sliderLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  sliderLabelText: {
+    fontSize: 11,
+    fontFamily: fontFamily.body,
+    color: colors.textFaint,
   },
   submitButton: {
     alignItems: "center",

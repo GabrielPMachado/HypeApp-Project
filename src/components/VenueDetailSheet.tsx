@@ -239,7 +239,9 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
               )}
               <View style={styles.hypeScorePill}>
                 <Feather name="zap" size={12} color={colors.accent} />
-                <Text style={styles.hypeScoreText}>{venue.hypeScore.toFixed(1)} hype agora</Text>
+                <Text style={styles.hypeScoreText}>
+                  {(hypeStatus?.score ?? venue.hypeScore).toFixed(1)} hype agora
+                </Text>
               </View>
             </View>
 
@@ -328,9 +330,9 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
       <HypeReportModal
         visible={isHypeModalOpen}
         venueName={venue.name}
-        currentHypeLevel={hypeStatus?.level ?? "medium"}
+        currentHypeScore={hypeStatus?.score ?? venue.hypeScore}
         onClose={() => setHypeModalOpen(false)}
-        onSubmit={(level) => addHypeReport(venue.id, level)}
+        onSubmit={(score) => addHypeReport(venue.id, score)}
       />
 
       <EvaluationModal

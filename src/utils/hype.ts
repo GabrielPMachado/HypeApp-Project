@@ -1,22 +1,21 @@
 import type { HypeLevel, HypeReport } from "@/types/venue";
 
-const LEVEL_TO_NUMBER: Record<HypeLevel, number> = { low: 1, medium: 2, high: 3 };
-const NUMBER_TO_LEVEL: HypeLevel[] = ["low", "medium", "high"];
-
 const WINDOW_STEP_MIN = 30; // janela avança de 30 em 30 minutos
 
 export interface HypeStatus {
-  level: HypeLevel;
+  score: number; // 0-10, média dos reports na janela
+  level: HypeLevel; // versão categórica de "score", só pro selo colorido
   sampleSize: number;
   windowMinutes: number; // tamanho da janela que precisou ser usada
   lastReportAt: string;
 }
 
-// Nível de hype exibido = média dos reports recebidos na janela dos
-// últimos 30 minutos. Se ninguém avaliou nesse intervalo, a janela vai
-// dobrando de 30 em 30 min (1h, 1h30, 2h...) até encontrar pelo menos um
-// report — assim o app nunca mostra "sem dado" enquanto existir
-// qualquer avaliação, só deixa claro de quanto tempo atrás ela é.
+// Nota de hype exibida = média das notas (0-10) dadas pelos usuários no
+// deslizador, na janela dos últimos 30 minutos. Se ninguém avaliou nesse
+// intervalo, a janela vai dobrando de 30 em 30 min (1h, 1h30, 2h...) até
+// encontrar pelo menos um report — assim o app nunca mostra "sem dado"
+// enquanto existir qualquer avaliação, só deixa claro de quanto tempo
+// atrás ela é.
 export function getCurrentHypeStatus(reports: HypeReport[]): HypeStatus | null {
   if (reports.length === 0) return null;
 
@@ -29,8 +28,7 @@ export function getCurrentHypeStatus(reports: HypeReport[]): HypeStatus | null {
 
   const source = reports.filter((r) => now - new Date(r.createdAt).getTime() <= windowMs);
 
-  const average = source.reduce((sum, r) => sum + LEVEL_TO_NUMBER[r.level], 0) / source.length;
-  const rounded = Math.min(3, Math.max(1, Math.round(average)));
+  const score = source.reduce((sum, r) => sum + r.score, 0) / source.length;
 
   const lastReportAt = source.reduce(
     (latest, r) => (r.createdAt > latest ? r.createdAt : latest),
@@ -38,11 +36,19 @@ export function getCurrentHypeStatus(reports: HypeReport[]): HypeStatus | null {
   );
 
   return {
-    level: NUMBER_TO_LEVEL[rounded - 1],
+    score,
+    level: scoreToLevel(score),
     sampleSize: source.length,
     windowMinutes,
     lastReportAt,
   };
+}
+
+// Converte a nota 0-10 numa categoria pro selo colorido (🟢🟡🔴).
+export function scoreToLevel(score: number): HypeLevel {
+  if (score <= 3.5) return "low";
+  if (score <= 7) return "medium";
+  return "high";
 }
 
 // Formata a janela usada na legenda da UI (ex: "30 min", "1h", "1h30").

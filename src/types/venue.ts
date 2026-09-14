@@ -13,8 +13,10 @@ export type PriceRange = "$" | "$$" | "$$$";
 
 // Duas avaliações bem diferentes, de propósito separadas:
 //
-// HypeReport = avaliação "de hype": rápida, só o status de agora (como
-// está o local neste instante). É o que alimenta getCurrentHypeStatus.
+// HypeReport = avaliação "de hype": rápida, o usuário dá uma nota de
+// 0 a 10 pro quão cheio/animado o local está agora (deslizador, não
+// categorias fixas). É o que alimenta getCurrentHypeStatus — a média
+// dessas notas na janela recente É o "hype agora" exibido no app.
 //
 // Review = avaliação "fixa": nota por critério (música, preço,
 // atendimento, ambiente), características percebidas e comentário —
@@ -22,7 +24,7 @@ export type PriceRange = "$" | "$$" | "$$$";
 export interface HypeReport {
   id: string;
   authorName: string;
-  level: HypeLevel;
+  score: number; // 0-10, dado pelo usuário no deslizador
   createdAt: string; // ISO timestamp
 }
 
@@ -52,7 +54,7 @@ export interface Venue {
   openingHours: string;
   latitude: number;
   longitude: number;
-  hypeScore: number; // "Nota do Hype", 0-10 — energia geral (ainda mock/fixa)
+  hypeScore: number; // "Nota do Hype" inicial (seed), 0-10 — só usada quando ainda não há nenhum HypeReport; depois disso o valor exibido é a média real dos reports (ver getCurrentHypeStatus)
   vibeTags: VibeTag[]; // características "seed" do local, antes de qualquer avaliação
   logoUrl?: string; // quando ainda não há logo real, a UI cai pra um avatar com iniciais
   hypeReports: HypeReport[]; // status atual é derivado destes (ver getCurrentHypeStatus)

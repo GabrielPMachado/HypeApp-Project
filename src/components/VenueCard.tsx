@@ -63,7 +63,7 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
 
         <View style={styles.scorePill}>
           <Feather name="zap" size={12} color={colors.accent} />
-          <Text style={styles.scoreText}>{venue.hypeScore.toFixed(1)}</Text>
+          <Text style={styles.scoreText}>{(hypeStatus?.score ?? venue.hypeScore).toFixed(1)}</Text>
         </View>
       </View>
 

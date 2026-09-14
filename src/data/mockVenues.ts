@@ -1,4 +1,4 @@
-import type { HypeLevel, HypeReport, Rating, Review, Venue, VibeTag } from "@/types/venue";
+import type { HypeReport, Rating, Review, Venue, VibeTag } from "@/types/venue";
 
 // Bares reais (nomes, bairros e endereços verificados) usados como dados
 // de desenvolvimento — mas hypeReports, reviews e coordenadas exatas são
@@ -9,12 +9,12 @@ import type { HypeLevel, HypeReport, Rating, Review, Venue, VibeTag } from "@/ty
 // pra 1h, 1h30 etc quando não há avaliação recente o suficiente.
 
 let hypeReportSeq = 0;
-function hr(minutesAgo: number, level: HypeLevel, authorName: string): HypeReport {
+function hr(minutesAgo: number, score: number, authorName: string): HypeReport {
   hypeReportSeq += 1;
   return {
     id: `hr-${hypeReportSeq}`,
     authorName,
-    level,
+    score,
     createdAt: new Date(Date.now() - minutesAgo * 60 * 1000).toISOString(),
   };
 }
@@ -65,7 +65,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0407, -51.2247, 0),
     hypeScore: 8.8,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(25, "high", "Marina T."), hr(8, "high", "Diego S.")],
+    hypeReports: [hr(25, 8, "Marina T."), hr(8, 9, "Diego S.")],
     reviews: [
       rv(
         120,
@@ -87,7 +87,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0407, -51.2247, 1),
     hypeScore: 7.4,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(22, "medium", "Bruno L.")],
+    hypeReports: [hr(22, 6, "Bruno L.")],
     reviews: [
       rv(
         200,
@@ -109,7 +109,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0407, -51.2247, 2),
     hypeScore: 8.1,
     vibeTags: ["samba", "para-dancar"],
-    hypeReports: [hr(40, "low", "Carla M."), hr(10, "medium", "Yuri P.")],
+    hypeReports: [hr(40, 3, "Carla M."), hr(10, 6, "Yuri P.")],
     reviews: [
       rv(
         300,
@@ -152,7 +152,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0407, -51.2247, 4),
     hypeScore: 6.8,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(50, "medium", "Felipe R.")],
+    hypeReports: [hr(50, 5, "Felipe R.")],
     reviews: [
       rv(
         50,
@@ -176,7 +176,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.033, -51.214, 0),
     hypeScore: 8.3,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(15, "medium", "Renata K.")],
+    hypeReports: [hr(15, 6, "Renata K.")],
     reviews: [
       rv(
         180,
@@ -198,7 +198,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.033, -51.214, 1),
     hypeScore: 7.2,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(18, "medium", "Thiago A.")],
+    hypeReports: [hr(18, 5, "Thiago A.")],
     reviews: [
       rv(
         90,
@@ -220,7 +220,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.033, -51.214, 2),
     hypeScore: 6.5,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(12, "low", "Paula S.")],
+    hypeReports: [hr(12, 3, "Paula S.")],
     reviews: [
       rv(
         240,
@@ -242,7 +242,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.033, -51.214, 3),
     hypeScore: 7.6,
     vibeTags: ["para-dancar"],
-    hypeReports: [hr(20, "high", "Gabriel N.")],
+    hypeReports: [hr(20, 8, "Gabriel N.")],
     reviews: [
       rv(
         60,
@@ -264,7 +264,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.033, -51.214, 4),
     hypeScore: 6.9,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(28, "medium", "Camila V.")],
+    hypeReports: [hr(28, 5, "Camila V.")],
     reviews: [
       rv(
         120,
@@ -288,7 +288,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0247, -51.2064, 0),
     hypeScore: 7.8,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(14, "medium", "Isabela F.")],
+    hypeReports: [hr(14, 6, "Isabela F.")],
     reviews: [
       rv(
         150,
@@ -310,7 +310,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0247, -51.2064, 1),
     hypeScore: 7.3,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(24, "medium", "Rodrigo M.")],
+    hypeReports: [hr(24, 6, "Rodrigo M.")],
     reviews: [
       rv(
         80,
@@ -332,7 +332,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0247, -51.2064, 2),
     hypeScore: 8.9,
     vibeTags: ["eletronica", "para-dancar"],
-    hypeReports: [hr(9, "high", "Larissa D.")],
+    hypeReports: [hr(9, 9, "Larissa D.")],
     reviews: [
       rv(
         30,
@@ -354,7 +354,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0247, -51.2064, 3),
     hypeScore: 7.5,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(35, "medium", "Eduardo P.")],
+    hypeReports: [hr(35, 6, "Eduardo P.")],
     reviews: [
       rv(
         35,
@@ -376,7 +376,7 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0247, -51.2064, 4),
     hypeScore: 6.2,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(19, "low", "Beatriz L.")],
+    hypeReports: [hr(19, 2, "Beatriz L.")],
     reviews: [
       rv(
         400,
@@ -400,7 +400,7 @@ export const mockVenues: Venue[] = [
     ...coords(-27.5954, -48.548, 0),
     hypeScore: 8.0,
     vibeTags: ["samba"],
-    hypeReports: [hr(16, "high", "Vitor H.")],
+    hypeReports: [hr(16, 8, "Vitor H.")],
     reviews: [
       rv(
         50,
@@ -422,7 +422,7 @@ export const mockVenues: Venue[] = [
     ...coords(-27.5954, -48.548, 1),
     hypeScore: 7.7,
     vibeTags: ["samba"],
-    hypeReports: [hr(21, "medium", "Juliana R.")],
+    hypeReports: [hr(21, 6, "Juliana R.")],
     reviews: [
       rv(
         70,
@@ -444,7 +444,7 @@ export const mockVenues: Venue[] = [
     ...coords(-27.5954, -48.548, 2),
     hypeScore: 7.1,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(45, "medium", "Marcelo T.")],
+    hypeReports: [hr(45, 5, "Marcelo T.")],
     reviews: [
       rv(
         45,
@@ -466,7 +466,7 @@ export const mockVenues: Venue[] = [
     ...coords(-27.5954, -48.548, 3),
     hypeScore: 7.9,
     vibeTags: ["rock"],
-    hypeReports: [hr(11, "high", "Natália G.")],
+    hypeReports: [hr(11, 8, "Natália G.")],
     reviews: [
       rv(
         20,
@@ -488,7 +488,7 @@ export const mockVenues: Venue[] = [
     ...coords(-27.5954, -48.548, 4),
     hypeScore: 6.4,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(27, "low", "Diego F.")],
+    hypeReports: [hr(27, 2, "Diego F.")],
     reviews: [
       rv(
         300,
@@ -512,7 +512,7 @@ export const mockVenues: Venue[] = [
     ...coords(-23.5505, -46.691, 0),
     hypeScore: 8.2,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(13, "medium", "Amanda C.")],
+    hypeReports: [hr(13, 6, "Amanda C.")],
     reviews: [
       rv(
         100,
@@ -534,7 +534,7 @@ export const mockVenues: Venue[] = [
     ...coords(-23.5505, -46.691, 1),
     hypeScore: 8.6,
     vibeTags: ["para-dancar"],
-    hypeReports: [hr(7, "high", "Rafael B.")],
+    hypeReports: [hr(7, 9, "Rafael B.")],
     reviews: [
       rv(
         40,
@@ -556,7 +556,7 @@ export const mockVenues: Venue[] = [
     ...coords(-23.5505, -46.691, 2),
     hypeScore: 8.4,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(17, "high", "Camila O.")],
+    hypeReports: [hr(17, 8, "Camila O.")],
     reviews: [
       rv(
         60,
@@ -578,7 +578,7 @@ export const mockVenues: Venue[] = [
     ...coords(-23.5505, -46.691, 3),
     hypeScore: 8.0,
     vibeTags: ["samba", "para-conversar"],
-    hypeReports: [hr(23, "medium", "Lucas M.")],
+    hypeReports: [hr(23, 6, "Lucas M.")],
     reviews: [
       rv(
         200,
@@ -600,7 +600,7 @@ export const mockVenues: Venue[] = [
     ...coords(-23.5505, -46.691, 4),
     hypeScore: 7.3,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(33, "low", "Fernanda Q.")],
+    hypeReports: [hr(33, 3, "Fernanda Q.")],
     reviews: [
       rv(
         500,
@@ -624,7 +624,7 @@ export const mockVenues: Venue[] = [
     ...coords(-22.9133, -43.1797, 0),
     hypeScore: 9.0,
     vibeTags: ["samba", "para-dancar"],
-    hypeReports: [hr(6, "high", "Bianca S.")],
+    hypeReports: [hr(6, 9, "Bianca S.")],
     reviews: [
       rv(
         25,
@@ -646,7 +646,7 @@ export const mockVenues: Venue[] = [
     ...coords(-22.9133, -43.1797, 1),
     hypeScore: 8.5,
     vibeTags: ["samba"],
-    hypeReports: [hr(10, "high", "Pedro A.")],
+    hypeReports: [hr(10, 8, "Pedro A.")],
     reviews: [
       rv(
         35,
@@ -668,7 +668,7 @@ export const mockVenues: Venue[] = [
     ...coords(-22.9133, -43.1797, 2),
     hypeScore: 8.1,
     vibeTags: ["samba"],
-    hypeReports: [hr(20, "medium", "Juliana P.")],
+    hypeReports: [hr(20, 6, "Juliana P.")],
     reviews: [
       rv(
         90,
@@ -690,7 +690,7 @@ export const mockVenues: Venue[] = [
     ...coords(-22.9133, -43.1797, 3),
     hypeScore: 7.4,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(29, "medium", "Otávio R.")],
+    hypeReports: [hr(29, 5, "Otávio R.")],
     reviews: [
       rv(
         150,
@@ -712,7 +712,7 @@ export const mockVenues: Venue[] = [
     ...coords(-22.9133, -43.1797, 4),
     hypeScore: 7.8,
     vibeTags: ["samba", "para-dancar"],
-    hypeReports: [hr(31, "high", "Talita M.")],
+    hypeReports: [hr(31, 8, "Talita M.")],
     reviews: [
       rv(
         31,
