@@ -65,7 +65,12 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0407, -51.2247, 0),
     hypeScore: 8.8,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(25, 8, "Marina T."), hr(8, 9, "Diego S.")],
+    hypeReports: [
+      hr(25, 8, "Marina T."),
+      hr(8, 9, "Diego S."),
+      hr(7, 6.7, "Elisa O."),
+      hr(2, 5, "Eduardo K."),
+    ],
     reviews: [
       rv(
         120,
@@ -87,7 +92,12 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0407, -51.2247, 1),
     hypeScore: 7.4,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(22, 6, "Bruno L.")],
+    hypeReports: [
+      hr(22, 6, "Bruno L."),
+      hr(32, 1.6, "Quesia E."),
+      hr(17, 8.9, "Pedro K."),
+      hr(21, 7.5, "Mariana V."),
+    ],
     reviews: [
       rv(
         200,
@@ -109,7 +119,13 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0407, -51.2247, 2),
     hypeScore: 8.1,
     vibeTags: ["samba", "para-dancar"],
-    hypeReports: [hr(40, 3, "Carla M."), hr(10, 6, "Yuri P.")],
+    hypeReports: [
+      hr(40, 3, "Carla M."),
+      hr(10, 6, "Yuri P."),
+      hr(29, 4.7, "Pedro U."),
+      hr(12, 5.6, "Gustavo J."),
+      hr(22, 6.3, "Olívia K."),
+    ],
     reviews: [
       rv(
         300,
@@ -138,7 +154,11 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0407, -51.2247, 3),
     hypeScore: 7.0,
     vibeTags: ["rock"],
-    hypeReports: [],
+    hypeReports: [
+      hr(6, 5.6, "Rafael W."),
+      hr(29, 2.1, "Quesia K."),
+      hr(7, 3.5, "Vanessa P."),
+    ],
     reviews: [],
     updatedAt: new Date().toISOString(),
   },
@@ -152,7 +172,11 @@ export const mockVenues: Venue[] = [
     ...coords(-30.0407, -51.2247, 4),
     hypeScore: 6.8,
     vibeTags: ["para-conversar"],
-    hypeReports: [hr(50, 5, "Felipe R.")],
+    hypeReports: [
+      hr(50, 5, "Felipe R."),
+      hr(1, 2.8, "Henrique Q."),
+      hr(11, 9.4, "Mariana I."),
+    ],
     reviews: [
       rv(
         50,
