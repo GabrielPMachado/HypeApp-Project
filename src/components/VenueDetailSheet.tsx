@@ -47,50 +47,77 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
   const [isHypeModalOpen, setHypeModalOpen] = useState(false);
   const [isEvaluationOpen, setEvaluationOpen] = useState(false);
   const sheetRef = useRef<BottomSheetModal>(null);
-  // Rastreia se a folha está (ou achamos que está) no meio da animação
-  // de fechamento. Chamar present() enquanto um dismiss() anterior
-  // ainda está animando deixa a biblioteca num estado inconsistente
-  // (folha "presa" fechada) — bug conhecido do @gorhom/bottom-sheet com
-  // chamadas programáticas de dismiss()/present() em sucessão rápida.
-  // Pior: o próprio onDismiss não é confiável quando o fechamento foi
-  // programático (só dispara de forma consistente em gesto do usuário,
-  // testado e confirmado), então não dá pra depender dele sozinho —
-  // usamos um tempo fixo de segurança como sinal de "já deve ter
-  // terminado", e o onDismiss só adianta esse sinal quando ele dispara.
+  // Chamar dismiss() numa folha que a PRÓPRIA biblioteca já fechou
+  // sozinha (gesto de arrastar ou toque no backdrop) é o que deixava
+  // tudo preso de vez — não é só uma questão de tempo, o dismiss() extra
+  // bagunça o estado interno da BottomSheetModal. Por isso rastreamos
+  // SE foi a biblioteca que já fechou (via onDismiss, antes do nosso
+  // efeito reagir) pra nunca mandar fechar de novo nesse caso.
+  const dismissedByLibraryRef = useRef(false);
+  // Só quando SOMOS NÓS que pedimos o fechamento (ex: botão X) que
+  // existe uma janela real de "ainda fechando" — chamar present() logo
+  // depois de um dismiss() programático nosso é o bug conhecido da
+  // biblioteca com chamadas em sucessão rápida.
   const isClosingRef = useRef(false);
+  const pendingOpenRef = useRef(false);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const CLOSE_ANIMATION_MS = 350;
+
+  const scheduleCloseUnlock = () => {
+    if (closeTimeoutRef.current) return; // já tem um agendado, deixa terminar
+    closeTimeoutRef.current = setTimeout(() => {
+      closeTimeoutRef.current = null;
+      isClosingRef.current = false;
+      if (pendingOpenRef.current) {
+        pendingOpenRef.current = false;
+        present();
+      }
+    }, CLOSE_ANIMATION_MS);
+  };
+
+  // Sempre que a folha realmente abre, zera o sinalizador de "a
+  // biblioteca já fechou sozinha" — ele só deve valer pro fechamento
+  // seguinte a ESSA abertura, nunca sobrar de uma abertura anterior.
+  const present = () => {
+    dismissedByLibraryRef.current = false;
+    sheetRef.current?.present();
+  };
 
   // Reage tanto a "visible" quanto a "venue?.id": só olhar "visible" não
   // basta, porque clicar num card com a folha ainda aberta (fechando um
   // local e abrindo outro em seguida) não muda visible (já era true),
   // então o efeito nunca disparava de novo e a folha ficava presa.
   useEffect(() => {
-    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-
     if (!visible) {
+      pendingOpenRef.current = false;
+
+      if (dismissedByLibraryRef.current) {
+        // A folha já fechou sozinha antes desse efeito rodar (gesto ou
+        // backdrop) — ela já está de fato fechada, nada a mandar fazer.
+        dismissedByLibraryRef.current = false;
+        isClosingRef.current = false;
+        return;
+      }
+
+      // Fomos nós que pedimos o fechamento (botão X): a folha ainda
+      // está de fato aberta, então mandamos fechar e aplicamos a janela
+      // de segurança antes de aceitar reabrir.
       isClosingRef.current = true;
       sheetRef.current?.dismiss();
-      // Libera o "trava" de fechamento depois de um tempo seguro, já
-      // que não podemos confiar só no onDismiss pra isso.
-      closeTimeoutRef.current = setTimeout(() => {
-        isClosingRef.current = false;
-      }, CLOSE_ANIMATION_MS);
+      scheduleCloseUnlock();
       return;
     }
 
     if (!isClosingRef.current) {
-      sheetRef.current?.present();
+      present();
       return;
     }
 
-    // Ainda dentro da janela de segurança do fechamento anterior: espera
-    // o restante antes de tentar abrir, pra não pegar a biblioteca no
-    // meio da animação de saída.
-    closeTimeoutRef.current = setTimeout(() => {
-      isClosingRef.current = false;
-      sheetRef.current?.present();
-    }, CLOSE_ANIMATION_MS);
+    // Ainda dentro da janela de segurança de um fechamento programático
+    // nosso — só marca que queremos abrir; o timer já agendado em
+    // scheduleCloseUnlock cuida de chamar present() assim que a janela
+    // terminar, sempre para o local mais recente pedido.
+    pendingOpenRef.current = true;
   }, [visible, venue?.id]);
 
   const renderBackdrop = useCallback(
@@ -144,7 +171,10 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
         index={0}
         snapPoints={SNAP_POINTS}
         enablePanDownToClose
-        onDismiss={onClose}
+        onDismiss={() => {
+          dismissedByLibraryRef.current = true;
+          onClose();
+        }}
         backdropComponent={renderBackdrop}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.handleIndicator}
