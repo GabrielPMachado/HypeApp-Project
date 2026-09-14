@@ -20,6 +20,13 @@ const LEVEL_TONES: Record<HypeLevel, string> = {
   high: colors.hypeHigh,
 };
 
+// O Slider entrega valores em ponto flutuante (ex: 6.499999999999) por
+// causa de arredondamento binário — sem isso o número exibido "tremeria"
+// nas casas decimais em vez de andar limpo de 0.1 em 0.1.
+function roundToTenth(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
 interface HypeReportModalProps {
   visible: boolean;
   venueName: string;
@@ -40,12 +47,12 @@ export function HypeReportModal({
   onClose,
   onSubmit,
 }: HypeReportModalProps) {
-  const [score, setScore] = useState(Math.round(currentHypeScore));
+  const [score, setScore] = useState(roundToTenth(currentHypeScore));
   const level = scoreToLevel(score);
   const tone = LEVEL_TONES[level];
 
   const handleClose = () => {
-    setScore(Math.round(currentHypeScore));
+    setScore(roundToTenth(currentHypeScore));
     onClose();
   };
 
@@ -72,7 +79,7 @@ export function HypeReportModal({
           </View>
 
           <View style={styles.scoreDisplay}>
-            <Text style={[styles.scoreNumber, { color: tone }]}>{score}</Text>
+            <Text style={[styles.scoreNumber, { color: tone }]}>{score.toFixed(1)}</Text>
             <Text style={[styles.scoreLevel, { color: tone }]}>{LEVEL_LABELS[level]}</Text>
           </View>
 
@@ -80,9 +87,9 @@ export function HypeReportModal({
             style={styles.slider}
             minimumValue={0}
             maximumValue={10}
-            step={1}
+            step={0.1}
             value={score}
-            onValueChange={setScore}
+            onValueChange={(value) => setScore(roundToTenth(value))}
             minimumTrackTintColor={tone}
             maximumTrackTintColor={colors.borderStrong}
             thumbTintColor={tone}
