@@ -21,7 +21,7 @@ function rankingScore(venue: { hypeScore: number; hypeReports: Parameters<typeof
 }
 
 export default function ListaScreen() {
-  const { venues } = useVenues();
+  const { venues, reloadMockData } = useVenues();
   const { location, locations, setLocationId } = useLocation();
   const [isPickerOpen, setPickerOpen] = useState(false);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
@@ -45,6 +45,21 @@ export default function ListaScreen() {
         <View style={styles.wordmarkRow}>
           <View style={styles.wordmarkDot} />
           <Text style={styles.wordmark}>HYPEAPP</Text>
+
+          {/* Só em dev: o Fast Refresh atualiza o código na hora, mas o
+              useState que guarda os venues só lê mockVenues.ts uma vez —
+              editar o arquivo não aparece sozinho na tela (ver
+              reloadMockData em VenuesContext.tsx). Esse botão relê os
+              dados sem precisar dar reload completo do app. */}
+          {__DEV__ && (
+            <Pressable
+              onPress={reloadMockData}
+              hitSlop={8}
+              style={({ pressed }) => [styles.devReloadButton, pressed && styles.devReloadButtonPressed]}
+            >
+              <Feather name="refresh-cw" size={13} color={colors.textFaint} />
+            </Pressable>
+          )}
         </View>
 
         <Pressable
@@ -144,6 +159,20 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.display,
     color: colors.text,
     letterSpacing: 0.5,
+  },
+  devReloadButton: {
+    marginLeft: "auto",
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  devReloadButtonPressed: {
+    opacity: 0.7,
   },
   locationButton: {
     flexDirection: "row",
