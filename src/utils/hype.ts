@@ -1,4 +1,4 @@
-import type { HypeLevel, HypeReport } from "@/types/venue";
+import type { HypeLevel, HypeReport, Venue } from "@/types/venue";
 
 const WINDOW_STEP_MIN = 30; // janela avança de 30 em 30 minutos
 
@@ -57,4 +57,13 @@ export function formatHypeWindow(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return rest === 0 ? `${hours}h` : `${hours}h${rest}`;
+}
+
+// Nota usada pra ordenar/colorir por hype em qualquer lugar do app
+// (ranking da lista, círculos do mapa de calor): a média real dos
+// reports quando existir, senão a nota semente — a mesma regra exibida
+// no card (ver VenueCard/VenueDetailSheet), pra número e posição/cor
+// nunca destoarem entre as telas.
+export function rankingScore(venue: Pick<Venue, "hypeScore" | "hypeReports">): number {
+  return getCurrentHypeStatus(venue.hypeReports)?.score ?? venue.hypeScore;
 }
