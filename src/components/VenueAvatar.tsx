@@ -87,6 +87,9 @@ interface VenueAvatarProps {
   logoUrl?: string;
   vibeTag?: VibeTag;
   size?: number;
+  /** Só o líder do ranking (#1) recebe a borda neon girando — os demais
+   *  ficam com uma borda simples, pra não "gritar" todos ao mesmo tempo. */
+  neon?: boolean;
 }
 
 // Mostra a foto real do bar quando existir (logoUrl) — hoje nenhum local
@@ -95,8 +98,8 @@ interface VenueAvatarProps {
 // de terceiros sem autorização. Enquanto isso, cai numa "marca" gerada:
 // ícone da vibe do local (ver VIBE_TAG_ICONS) como marca d'água atrás
 // das iniciais — formato retangular (cantos discretos, não um quadrado
-// bem arredondado), com uma borda neon de gradiente girando ao redor.
-export function VenueAvatar({ name, logoUrl, vibeTag, size = 44 }: VenueAvatarProps) {
+// bem arredondado).
+export function VenueAvatar({ name, logoUrl, vibeTag, size = 44, neon = false }: VenueAvatarProps) {
   const outerRadius = size * 0.18;
   const borderWidth = Math.max(2, Math.round(size * 0.045));
   const innerSize = size - borderWidth * 2;
@@ -107,7 +110,16 @@ export function VenueAvatar({ name, logoUrl, vibeTag, size = 44 }: VenueAvatarPr
 
   return (
     <View style={[styles.outer, { width: size, height: size, borderRadius: outerRadius }]}>
-      <NeonRing size={size} />
+      {neon ? (
+        <NeonRing size={size} />
+      ) : (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { borderRadius: outerRadius, borderWidth: 1, borderColor: colors.border },
+          ]}
+        />
+      )}
 
       <View
         style={[

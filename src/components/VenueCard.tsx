@@ -44,19 +44,38 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
             logoUrl={venue.logoUrl}
             vibeTag={venue.vibeTags[0]}
             size={52}
+            neon={isLeader}
           />
           <View style={[styles.rankBadge, isLeader && styles.rankBadgeLeader]}>
             <Text style={[styles.rankText, isLeader && styles.rankTextLeader]}>{rank}</Text>
           </View>
         </View>
 
-        <Text style={styles.name} numberOfLines={1}>
-          {venue.name}
-        </Text>
+        <View style={styles.identityText}>
+          <Text style={styles.name} numberOfLines={1}>
+            {venue.name}
+          </Text>
+          <Text style={styles.address} numberOfLines={1}>
+            {venue.address}
+          </Text>
+        </View>
 
         <View style={styles.scorePill}>
           <Feather name="zap" size={12} color={colors.accent} />
           <Text style={styles.scoreText}>{venue.hypeScore.toFixed(1)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.metaRow}>
+        <View style={styles.metaItem}>
+          <Feather name="clock" size={12} color={colors.textMuted} />
+          <Text style={styles.metaText} numberOfLines={1}>
+            {venue.openingHours}
+          </Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Feather name="dollar-sign" size={12} color={colors.textMuted} />
+          <Text style={styles.metaText}>{venue.priceRange}</Text>
         </View>
       </View>
 
@@ -152,11 +171,34 @@ const styles = StyleSheet.create({
   rankTextLeader: {
     color: colors.background,
   },
-  name: {
+  identityText: {
     flex: 1,
+    gap: 2,
+  },
+  name: {
     fontSize: 16,
     fontFamily: fontFamily.display,
     color: colors.text,
+  },
+  address: {
+    fontSize: 11,
+    fontFamily: fontFamily.body,
+    color: colors.textFaint,
+  },
+  metaRow: {
+    flexDirection: "row",
+    gap: 14,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flexShrink: 1,
+  },
+  metaText: {
+    fontSize: 12,
+    fontFamily: fontFamily.body,
+    color: colors.textMuted,
   },
   scorePill: {
     flexDirection: "row",
