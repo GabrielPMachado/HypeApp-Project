@@ -35,7 +35,7 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
       {isLeader && (
         <View style={styles.leaderBadge}>
           <Feather name="trending-up" size={11} color={colors.background} />
-          <Text style={styles.leaderBadgeText}>Mais quente agora</Text>
+          <Text style={styles.leaderBadgeText}>Mais hypado agora</Text>
         </View>
       )}
 
@@ -80,20 +80,17 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
         </View>
       </View>
 
-      {hypeStatus ? (
-        <HypeBadge level={hypeStatus.level} />
-      ) : (
-        <Text style={styles.noStatus}>Ainda sem status de hype</Text>
-      )}
-
       <View style={styles.tagsRow}>
+        {hypeStatus ? (
+          <HypeBadge level={hypeStatus.level} />
+        ) : (
+          <Text style={styles.noStatus}>Sem status</Text>
+        )}
         {vibeTags.map((tag) => (
           <View key={tag} style={styles.tag}>
             <Text style={styles.tagText}>{VIBE_TAG_LABELS[tag]}</Text>
           </View>
         ))}
-        <View style={{ flex: 1 }} />
-        <Feather name="chevron-right" size={16} color={colors.textFaint} />
       </View>
       </Pressable>
     </NeonBorder>
