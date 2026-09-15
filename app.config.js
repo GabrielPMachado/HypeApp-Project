@@ -18,8 +18,10 @@ module.exports = {
     },
     ios: {
       supportsTablet: true,
+      bundleIdentifier: "com.hypeapp.app",
     },
     android: {
+      package: "com.hypeapp.app",
       adaptiveIcon: {
         backgroundColor: "#0A0A0D",
         foregroundImage: "./assets/images/android-icon-foreground.png",
