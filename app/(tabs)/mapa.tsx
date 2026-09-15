@@ -2,10 +2,10 @@ import { Feather } from "@expo/vector-icons";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Circle, Marker } from "react-native-maps";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppHeader, subtitleStyles } from "@/components/AppHeader";
 import { LocationPickerModal } from "@/components/LocationPickerModal";
+import { VenueAvatar } from "@/components/VenueAvatar";
 import { VenueDetailSheet } from "@/components/VenueDetailSheet";
 import { useLocation } from "@/context/LocationContext";
 import { useVenues } from "@/context/VenuesContext";
@@ -23,6 +23,9 @@ const DARK_MAP_STYLE = [
   { elementType: "labels.text.stroke", stylers: [{ color: "#0a0a0d" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#9497a0" }] },
   { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#3a3a42" }] },
+  // Prédios (landscape.man_made) um tom mais claro que o chão vazio —
+  // sem isso os quarteirões ficam achatados, tudo na mesma cor.
+  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#26262f" }] },
   { featureType: "poi", stylers: [{ visibility: "off" }] },
   { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#1f2a20" }] },
   { featureType: "road", elementType: "geometry", stylers: [{ color: "#232330" }] },
@@ -50,7 +53,7 @@ const LEVEL_LABELS: Record<HypeLevel, string> = {
 // bares próximos com nota alta acabam com manchas se sobrepondo, que é
 // exatamente o efeito de "mapa de calor" que se busca aqui.
 function heatRadiusMeters(score: number): number {
-  return 60 + (score / 10) * 140;
+  return 25 + (score / 10) * 65;
 }
 
 interface Region {
@@ -61,8 +64,9 @@ interface Region {
 }
 
 // Enquadra todos os bares da região selecionada numa única "region" de
-// mapa, com uma folga de 80% ao redor do bounding box (e um mínimo de
-// zoom pra não ficar colado demais quando os bares são poucos/próximos).
+// mapa, com uma folga de 40% ao redor do bounding box (e um mínimo de
+// zoom que já aproxima o suficiente pra mostrar prédios/quarteirões,
+// não só a malha de ruas).
 function regionForVenues(venuesInRegion: Venue[]): Region | null {
   if (venuesInRegion.length === 0) return null;
 
@@ -76,8 +80,8 @@ function regionForVenues(venuesInRegion: Venue[]): Region | null {
   return {
     latitude: (minLat + maxLat) / 2,
     longitude: (minLng + maxLng) / 2,
-    latitudeDelta: Math.max((maxLat - minLat) * 1.8, 0.012),
-    longitudeDelta: Math.max((maxLng - minLng) * 1.8, 0.012),
+    latitudeDelta: Math.max((maxLat - minLat) * 1.4, 0.004),
+    longitudeDelta: Math.max((maxLng - minLng) * 1.4, 0.004),
   };
 }
 
@@ -92,6 +96,7 @@ function regionForVenues(venuesInRegion: Venue[]): Region | null {
 export default function MapaScreen() {
   const { venues } = useVenues();
   const { location, locations, setLocationId } = useLocation();
+  const insets = useSafeAreaInsets();
   const [isPickerOpen, setPickerOpen] = useState(false);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [isSheetOpen, setSheetOpen] = useState(false);
@@ -116,31 +121,40 @@ export default function MapaScreen() {
 
   const sheetVenue = venues.find((venue) => venue.id === selectedVenueId) ?? null;
 
-  return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <AppHeader
-        location={location}
-        onOpenLocationPicker={() => setPickerOpen(true)}
-        subtitle={
-          venuesInRegion.length > 0 && (
-            <Text style={subtitleStyles.text}>
-              Mapa de calor · {venuesInRegion.length}{" "}
-              {venuesInRegion.length === 1 ? "local" : "locais"}
-            </Text>
-          )
-        }
-      />
+  // Header próprio pra essa tela: só o seletor de região, sem wordmark
+  // nem legenda embaixo dele — fica com fundo transparente flutuando
+  // sobre o mapa (em vez de uma barra sólida empurrando o mapa pra
+  // baixo), pra sobrar mais mapa visível na tela.
+  const floatingHeader = (
+    <View style={[styles.floatingHeader, { top: insets.top + 10 }]} pointerEvents="box-none">
+      <Pressable
+        onPress={() => setPickerOpen(true)}
+        style={({ pressed }) => [styles.locationButton, pressed && styles.locationButtonPressed]}
+      >
+        <Feather name="map-pin" size={13} color={colors.accent} />
+        <Text style={styles.locationText} numberOfLines={1}>
+          {location.neighborhood}, {location.city}
+        </Text>
+        <Feather name="chevron-down" size={14} color={colors.textFaint} />
+      </Pressable>
+    </View>
+  );
 
+  return (
+    <View style={styles.container}>
       {!initialRegion ? (
-        <View style={styles.emptyState}>
-          <Feather name="map-pin" size={28} color={colors.textFaint} />
-          <Text style={styles.emptyTitle}>Ainda não estamos por aqui</Text>
-          <Text style={styles.emptySubtitle}>
-            {location.neighborhood} entra em breve. Que tal dar uma olhada na Cidade Baixa?
-          </Text>
-          <Pressable onPress={() => setLocationId("cidade-baixa-poa")} style={styles.emptyButton}>
-            <Text style={styles.emptyButtonText}>Ver Cidade Baixa</Text>
-          </Pressable>
+        <View style={styles.container}>
+          {floatingHeader}
+          <View style={styles.emptyState}>
+            <Feather name="map-pin" size={28} color={colors.textFaint} />
+            <Text style={styles.emptyTitle}>Ainda não estamos por aqui</Text>
+            <Text style={styles.emptySubtitle}>
+              {location.neighborhood} entra em breve. Que tal dar uma olhada na Cidade Baixa?
+            </Text>
+            <Pressable onPress={() => setLocationId("cidade-baixa-poa")} style={styles.emptyButton}>
+              <Text style={styles.emptyButtonText}>Ver Cidade Baixa</Text>
+            </Pressable>
+          </View>
         </View>
       ) : (
         <View style={styles.mapWrap}>
@@ -152,6 +166,7 @@ export default function MapaScreen() {
             style={StyleSheet.absoluteFill}
             initialRegion={initialRegion}
             customMapStyle={DARK_MAP_STYLE}
+            showsBuildings
           >
             {venuesInRegion.map((venue) => {
               const score = rankingScore(venue);
@@ -171,22 +186,38 @@ export default function MapaScreen() {
                     strokeColor={`${tone}99`}
                     strokeWidth={1}
                   />
+                  {/* Sem title/description: isso ativaria o callout nativo do
+                      Google Maps, que rouba o toque antes do onPress abrir a
+                      nossa folha de detalhe (mais completa que o callout).
+                      tracksViewChanges precisa ficar true — com false o
+                      Android tira uma "foto" da view ANTES dela terminar de
+                      desenhar (fonte/iniciais), e o marcador fica em branco. */}
                   <Marker
                     coordinate={coordinate}
-                    title={venue.name}
-                    description={`${score.toFixed(1)} · ${LEVEL_LABELS[level]}`}
-                    tracksViewChanges={false}
+                    tracksViewChanges
                     onPress={() => {
                       setSelectedVenueId(venue.id);
                       setSheetOpen(true);
                     }}
                   >
-                    <View style={[styles.markerDot, { backgroundColor: tone }]} />
+                    {/* Logo/avatar do bar (ver VenueAvatar) no lugar de um
+                        ponto genérico — o anel colorido preserva a
+                        codificação de hype por cor. */}
+                    <View style={[styles.markerRing, { borderColor: tone }]}>
+                      <VenueAvatar
+                        name={venue.name}
+                        logoUrl={venue.logoUrl}
+                        vibeTag={venue.vibeTags[0]}
+                        size={26}
+                      />
+                    </View>
                   </Marker>
                 </Fragment>
               );
             })}
           </MapView>
+
+          {floatingHeader}
 
           <View style={styles.legend}>
             {(["low", "medium", "high"] as HypeLevel[]).map((level) => (
@@ -212,7 +243,7 @@ export default function MapaScreen() {
         venue={sheetVenue}
         onClose={() => setSheetOpen(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -224,12 +255,36 @@ const styles = StyleSheet.create({
   mapWrap: {
     flex: 1,
   },
-  markerDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  markerRing: {
     borderWidth: 2,
-    borderColor: colors.background,
+    borderRadius: 10,
+    padding: 2,
+    backgroundColor: colors.background,
+  },
+  floatingHeader: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+  },
+  locationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  locationButtonPressed: {
+    opacity: 0.7,
+  },
+  locationText: {
+    fontSize: 13,
+    fontFamily: fontFamily.bodyMedium,
+    color: colors.text,
   },
   legend: {
     position: "absolute",
