@@ -11,7 +11,9 @@ import Animated, {
 
 // Cores da borda neon — o gradiente gira continuamente por trás, então a
 // última cor repete a primeira pra fechar o loop sem "costura" visível.
-const NEON_COLORS = ["#E8B24D", "#FF3DBB", "#7C4DFF", "#33D9FF", "#E8B24D"] as const;
+// Exportado pra dar pra reaproveitar a mesma paleta em lugares que não
+// suportam a animação em si (ex: marcador do mapa, ver app/(tabs)/mapa.tsx).
+export const NEON_COLORS = ["#E8B24D", "#FF3DBB", "#7C4DFF", "#33D9FF", "#E8B24D"] as const;
 
 interface NeonBorderProps {
   active: boolean;

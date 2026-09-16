@@ -1,10 +1,12 @@
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import MapView, { Circle, Marker } from "react-native-maps";
+import MapView, { Circle, Marker, Polygon } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LocationPickerModal } from "@/components/LocationPickerModal";
+import { NEON_COLORS } from "@/components/NeonBorder";
 import { VenueAvatar } from "@/components/VenueAvatar";
 import { VenueDetailSheet } from "@/components/VenueDetailSheet";
 import { useLocation } from "@/context/LocationContext";
@@ -36,6 +38,13 @@ const DARK_MAP_STYLE = [
   { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#5c5f68" }] },
 ];
 
+// Map ID de um estilo vetorial escuro (configurado no Google Cloud
+// Console > Map Management) — só com mapa vetorial os prédios aparecem
+// em 3D de verdade. Sem essa variável (ex: quem clonar o projeto sem
+// configurar o próprio Map ID), cai pro DARK_MAP_STYLE clássico acima
+// (2D, sem prédio 3D, mas ainda no tema escuro).
+const GOOGLE_MAPS_MAP_ID = process.env.EXPO_PUBLIC_GOOGLE_MAPS_MAP_ID;
+
 const LEVEL_COLORS: Record<HypeLevel, string> = {
   low: colors.hypeLow,
   medium: colors.hypeMedium,
@@ -54,6 +63,30 @@ const LEVEL_LABELS: Record<HypeLevel, string> = {
 // exatamente o efeito de "mapa de calor" que se busca aqui.
 function heatRadiusMeters(score: number): number {
   return 25 + (score / 10) * 65;
+}
+
+const METERS_PER_DEGREE_LAT = 111_320;
+
+// O SDK do Google Maps não expõe a geometria dos prédios de verdade pro
+// app (é dado interno do próprio mapa) — então isso é só uma aproximação:
+// um quadradinho colorido centralizado no ponto do bar, não o contorno
+// real do prédio. Serve pra "marcar esse aqui" visualmente.
+function squareAround(latitude: number, longitude: number, halfSizeMeters: number) {
+  const dLat = halfSizeMeters / METERS_PER_DEGREE_LAT;
+  const dLng = halfSizeMeters / (METERS_PER_DEGREE_LAT * Math.cos((latitude * Math.PI) / 180));
+  return [
+    { latitude: latitude + dLat, longitude: longitude - dLng },
+    { latitude: latitude + dLat, longitude: longitude + dLng },
+    { latitude: latitude - dLat, longitude: longitude + dLng },
+    { latitude: latitude - dLat, longitude: longitude - dLng },
+  ];
+}
+
+// Conversão aproximada de "delta" de region pra "zoom" de camera —
+// precisamos de camera (não region) pra poder inclinar a vista
+// (pitch) e revelar os prédios em 3D.
+function deltaToZoom(longitudeDelta: number): number {
+  return Math.log2(360 / longitudeDelta);
 }
 
 interface Region {
@@ -114,6 +147,19 @@ export default function MapaScreen() {
     [venues, location.id]
   );
 
+  // Mesmo local "mais hypado agora" da Lista (ver VenueCard) — o
+  // destaque especial no mapa (contorno dourado, moldura neon no
+  // marcador) segue esse mesmo bar. Calculado direto no corpo do
+  // render (sem useMemo): rankingScore depende do relógio, então
+  // precisa recalcular a cada tick de 1s, não só quando venuesInRegion
+  // muda de referência.
+  const leaderVenueId =
+    venuesInRegion.length === 0
+      ? null
+      : venuesInRegion.reduce((best, venue) =>
+          rankingScore(venue) > rankingScore(best) ? venue : best
+        ).id;
+
   // Recalcula só quando muda de bairro (não a cada tick) — senão a
   // pessoa não conseguiria dar zoom/pan livremente, porque a região
   // "resetaria" pro enquadramento padrão a cada segundo.
@@ -164,8 +210,22 @@ export default function MapaScreen() {
           <MapView
             key={location.id}
             style={StyleSheet.absoluteFill}
-            initialRegion={initialRegion}
-            customMapStyle={DARK_MAP_STYLE}
+            // camera (não region) porque region não tem "pitch" — sem
+            // inclinar a câmera, o Google Maps só mostra os prédios
+            // achatados (2D), mesmo com showsBuildings ligado.
+            initialCamera={{
+              center: { latitude: initialRegion.latitude, longitude: initialRegion.longitude },
+              zoom: deltaToZoom(initialRegion.longitudeDelta),
+              pitch: 55,
+              heading: 0,
+            }}
+            // googleMapId (mapa vetorial, com prédios 3D de verdade) e
+            // customMapStyle (JSON clássico) são mutuamente exclusivos —
+            // com Map ID configurado, o estilo vem da nuvem; senão, cai
+            // pro JSON embutido.
+            {...(GOOGLE_MAPS_MAP_ID
+              ? { googleMapId: GOOGLE_MAPS_MAP_ID }
+              : { customMapStyle: DARK_MAP_STYLE })}
             showsBuildings
           >
             {venuesInRegion.map((venue) => {
@@ -173,18 +233,32 @@ export default function MapaScreen() {
               const level = scoreToLevel(score);
               const tone = LEVEL_COLORS[level];
               const coordinate = { latitude: venue.latitude, longitude: venue.longitude };
+              const isLeader = venue.id === leaderVenueId;
 
               return (
                 // Fragment, não View: o MapView nativo espera achar Circle/
                 // Marker como filhos DIRETOS dele pra reconhecer como
                 // overlays — uma View de verdade no meio quebraria isso.
                 <Fragment key={venue.id}>
+                  {/* Circle é uma forma nativa do mapa — só aceita cor
+                      sólida (sem gradiente, sem giro). O líder ganha um
+                      contorno dourado mais grosso em vez da cor de hype
+                      padrão, pra se destacar como nos cards da Lista. */}
                   <Circle
                     center={coordinate}
                     radius={heatRadiusMeters(score)}
                     fillColor={`${tone}59`}
-                    strokeColor={`${tone}99`}
-                    strokeWidth={1}
+                    strokeColor={isLeader ? colors.accent : `${tone}99`}
+                    strokeWidth={isLeader ? 3 : 1}
+                  />
+                  {/* Aproximação do prédio do bar (ver squareAround) — o
+                      SDK não dá acesso ao contorno real do prédio, então
+                      isso é só um quadrado colorido no ponto exato. */}
+                  <Polygon
+                    coordinates={squareAround(venue.latitude, venue.longitude, 9)}
+                    fillColor={`${tone}40`}
+                    strokeColor={isLeader ? colors.accent : tone}
+                    strokeWidth={isLeader ? 3 : 2}
                   />
                   {/* Sem title/description: isso ativaria o callout nativo do
                       Google Maps, que rouba o toque antes do onPress abrir a
@@ -201,16 +275,37 @@ export default function MapaScreen() {
                     }}
                   >
                     {/* Logo/avatar do bar (ver VenueAvatar) no lugar de um
-                        ponto genérico — o anel colorido preserva a
-                        codificação de hype por cor. */}
-                    <View style={[styles.markerRing, { borderColor: tone }]}>
-                      <VenueAvatar
-                        name={venue.name}
-                        logoUrl={venue.logoUrl}
-                        vibeTag={venue.vibeTags[0]}
-                        size={26}
-                      />
-                    </View>
+                        ponto genérico. O líder ganha a mesma paleta neon
+                        do card (ver NeonBorder) como moldura — estática
+                        aqui, já que animar um marcador de mapa exige
+                        re-tirar um "print" da view a cada frame, algo
+                        instável demais pra valer a pena. */}
+                    {isLeader ? (
+                      <LinearGradient
+                        colors={NEON_COLORS}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.markerRingNeon}
+                      >
+                        <View style={styles.markerRingInner}>
+                          <VenueAvatar
+                            name={venue.name}
+                            logoUrl={venue.logoUrl}
+                            vibeTag={venue.vibeTags[0]}
+                            size={26}
+                          />
+                        </View>
+                      </LinearGradient>
+                    ) : (
+                      <View style={[styles.markerRing, { borderColor: tone }]}>
+                        <VenueAvatar
+                          name={venue.name}
+                          logoUrl={venue.logoUrl}
+                          vibeTag={venue.vibeTags[0]}
+                          size={26}
+                        />
+                      </View>
+                    )}
                   </Marker>
                 </Fragment>
               );
@@ -259,6 +354,15 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderRadius: 10,
     padding: 2,
+    backgroundColor: colors.background,
+  },
+  markerRingNeon: {
+    borderRadius: 10,
+    padding: 3,
+  },
+  markerRingInner: {
+    borderRadius: 7,
+    overflow: "hidden",
     backgroundColor: colors.background,
   },
   floatingHeader: {
