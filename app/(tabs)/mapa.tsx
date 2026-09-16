@@ -25,9 +25,19 @@ const DARK_MAP_STYLE = [
   { elementType: "labels.text.stroke", stylers: [{ color: "#0a0a0d" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#9497a0" }] },
   { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#3a3a42" }] },
-  // Prédios (landscape.man_made) um tom mais claro que o chão vazio —
-  // sem isso os quarteirões ficam achatados, tudo na mesma cor.
-  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#26262f" }] },
+  // administrative.land_parcel (contorno de lotes/propriedades) só
+  // aparece em zoom bem alto (nível de rua/propriedade) — não precisamos
+  // disso nesse mapa, então desligamos.
+  { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
+  // Prédios (landscape.man_made) marcados só pelo CONTORNO, com o
+  // preenchimento igual ao chão vazio — em zoom de rua/quarteirão isso
+  // desenha a silhueta de cada prédio; a diferença de tom só no fill
+  // (testada antes) piora em zoom bem alto, porque ali o Google
+  // classifica o chão visível inteiro como "man_made" (não só os
+  // prédios), e um fill mais claro pinta a tela toda em vez de só os
+  // quarteirões.
+  { featureType: "landscape.man_made", elementType: "geometry.fill", stylers: [{ color: "#1c1c22" }] },
+  { featureType: "landscape.man_made", elementType: "geometry.stroke", stylers: [{ color: "#3a3a46" }] },
   { featureType: "poi", stylers: [{ visibility: "off" }] },
   { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#1f2a20" }] },
   { featureType: "road", elementType: "geometry", stylers: [{ color: "#232330" }] },
@@ -212,11 +222,14 @@ export default function MapaScreen() {
             style={StyleSheet.absoluteFill}
             // camera (não region) porque region não tem "pitch" — sem
             // inclinar a câmera, o Google Maps só mostra os prédios
-            // achatados (2D), mesmo com showsBuildings ligado.
+            // achatados (2D), mesmo com showsBuildings ligado. Só inclina
+            // de verdade quando o Map ID (mapa vetorial) está ativo — sem
+            // ele não existe prédio 3D pra revelar, e a inclinação só
+            // deixaria o mapa 2D comum mais difícil de ler.
             initialCamera={{
               center: { latitude: initialRegion.latitude, longitude: initialRegion.longitude },
               zoom: deltaToZoom(initialRegion.longitudeDelta),
-              pitch: 55,
+              pitch: GOOGLE_MAPS_MAP_ID ? 55 : 0,
               heading: 0,
             }}
             // googleMapId (mapa vetorial, com prédios 3D de verdade) e
