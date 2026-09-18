@@ -1,3 +1,4 @@
+import { Feather } from "@expo/vector-icons";
 import {
   arrayUnion,
   collection,
@@ -10,9 +11,16 @@ import {
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Alert } from "react-native";
 
+import { FeedbackModal } from "@/components/FeedbackModal";
 import { mockVenues } from "@/data/mockVenues";
 import { auth, db, isFirebaseConfigured } from "@/services/firebase";
 import type { HypeReport, Review, Venue } from "@/types/venue";
+
+interface Feedback {
+  icon: keyof typeof Feather.glyphMap;
+  title: string;
+  message: string;
+}
 
 interface VenuesContextValue {
   venues: Venue[];
@@ -46,6 +54,7 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
   // que o Firestore responder, o efeito abaixo substitui pelos dados
   // reais.
   const [venues, setVenues] = useState<Venue[]>(mockVenues);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
 
   // Leitura em tempo real: enquanto o Firebase não estiver configurado
   // (.env vazio), o app inteiro continua 100% sobre o mock, igual a
@@ -94,7 +103,11 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
         // pode não ter completado se a pessoa tocar assim que o app
         // abre) — melhor avisar do que deixar a escrita ser rejeitada
         // sem explicação.
-        Alert.alert("Só um instante", "Ainda estamos conectando — tenta de novo em alguns segundos.");
+        setFeedback({
+          icon: "wifi",
+          title: "Só um instante",
+          message: "Ainda estamos conectando — tenta de novo em alguns segundos.",
+        });
         return;
       }
 
@@ -120,7 +133,11 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
         // (ver regra), não precisa ser exatamente isso pro usuário —
         // "espera um pouco" já cobre os dois casos (bloqueado ou sem
         // permissão mesmo).
-        Alert.alert("Não deu pra enviar", "Espera um pouco antes de reportar esse bar de novo.");
+        setFeedback({
+          icon: "clock",
+          title: "Não deu pra enviar",
+          message: "Espera um pouco antes de reportar esse bar de novo.",
+        });
       });
       return;
     }
@@ -197,7 +214,18 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     [venues]
   );
 
-  return <VenuesContext.Provider value={value}>{children}</VenuesContext.Provider>;
+  return (
+    <VenuesContext.Provider value={value}>
+      {children}
+      <FeedbackModal
+        visible={feedback !== null}
+        icon={feedback?.icon ?? "info"}
+        title={feedback?.title ?? ""}
+        message={feedback?.message ?? ""}
+        onClose={() => setFeedback(null)}
+      />
+    </VenuesContext.Provider>
+  );
 }
 
 export function useVenues() {
