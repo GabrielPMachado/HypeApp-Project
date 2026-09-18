@@ -1,6 +1,9 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { arrayUnion, collection, doc, onSnapshot, updateDoc, writeBatch } from "firebase/firestore";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Alert } from "react-native";
 
 import { mockVenues } from "@/data/mockVenues";
+import { db, isFirebaseConfigured } from "@/services/firebase";
 import type { HypeReport, Review, Venue } from "@/types/venue";
 
 interface VenuesContextValue {
@@ -9,19 +12,61 @@ interface VenuesContextValue {
   addReview: (id: string, review: Omit<Review, "id" | "createdAt">) => void;
   setVenueLogo: (id: string, logoUrl: string) => void;
   reloadMockData: () => void;
+  // Só pra dev: popula "venues/{id}" no Firestore com o mockVenues.ts
+  // atual (um doc por bar, setDoc — idempotente, rodar de novo só
+  // sobrescreve). Precisa da regra de escrita liberada em "venues"
+  // (temporariamente) pra funcionar, ver README/plano do backend.
+  seedFirestoreFromMock: () => Promise<void>;
 }
 
 const VenuesContext = createContext<VenuesContextValue | undefined>(undefined);
 
-// Provider único da lista de locais. Hoje serve dados mockados; quando o
-// Firebase entrar, só o "miolo" (o useState/fetch) precisa mudar — os
-// componentes que consomem useVenues() continuam iguais.
+// Provider único da lista de locais. Lê do Firestore quando configurado
+// (ver src/services/firebase.ts), senão cai pro mock — os componentes
+// que consomem useVenues() não sabem a diferença, a interface é a mesma.
 //
 // Duas mutações bem separadas, espelhando os dois tipos de avaliação:
 // addHypeReport (rápida, só o status de agora) e addReview (fixa, nota
-// por critério + características + comentário).
+// por critério + características + comentário). Por enquanto as duas
+// (e setVenueLogo) só alteram o estado local, mesmo com Firestore
+// configurado — sincronizar escrita é o próximo passo, depois deste
+// aqui (leitura) validado.
 export function VenuesProvider({ children }: { children: ReactNode }) {
+  // Começa com o mock mesmo quando o Firestore está configurado — evita
+  // a tela ficar vazia (e disparar o estado "ainda não estamos por
+  // aqui") no instante entre montar e o primeiro snapshot chegar. Assim
+  // que o Firestore responder, o efeito abaixo substitui pelos dados
+  // reais.
   const [venues, setVenues] = useState<Venue[]>(mockVenues);
+
+  // Leitura em tempo real: enquanto o Firebase não estiver configurado
+  // (.env vazio), o app inteiro continua 100% sobre o mock, igual a
+  // antes — nenhum outro comportamento muda. Passo 1 é só leitura: cada
+  // bar é um documento solto em "venues/{id}", sem subcoleções; escrita
+  // (addHypeReport/addReview/setVenueLogo) continua só local por
+  // enquanto (ver comentários abaixo).
+  useEffect(() => {
+    if (!isFirebaseConfigured || !db) return;
+
+    const unsubscribe = onSnapshot(collection(db, "venues"), (snapshot) => {
+      setVenues(
+        snapshot.docs.map((doc) => {
+          const venue = { ...(doc.data() as Venue), id: doc.id };
+          // arrayUnion (ver addHypeReport/addReview abaixo) sempre
+          // acrescenta no FIM do array — reordena por data aqui pra
+          // manter "mais recente primeiro", que é o que a UI espera
+          // (ver VenueDetailSheet.tsx, lista de comentários).
+          return {
+            ...venue,
+            hypeReports: [...venue.hypeReports].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
+            reviews: [...venue.reviews].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
+          };
+        })
+      );
+    });
+
+    return unsubscribe;
+  }, []);
 
   const addHypeReport = (id: string, score: number) => {
     const newReport: HypeReport = {
@@ -30,6 +75,25 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
       score,
       createdAt: new Date().toISOString(),
     };
+
+    // Com Firestore, não mexe no estado local — deixa o onSnapshot
+    // acima refletir a escrita (ele já dispara na hora com o dado
+    // pendente, antes mesmo do servidor confirmar). Mexer nos dois
+    // lados duplicaria o report por um instante.
+    // .catch obrigatório aqui: sem ele, uma escrita rejeitada (regra do
+    // Firestore negando, sem rede etc.) some em silêncio — nem loga nem
+    // avisa quem tocou no botão, a pessoa acha que enviou e não enviou.
+    if (isFirebaseConfigured && db) {
+      updateDoc(doc(db, "venues", id), {
+        hypeReports: arrayUnion(newReport),
+        updatedAt: newReport.createdAt,
+      }).catch((error: Error) => {
+        console.error("addHypeReport falhou:", error);
+        Alert.alert("Não deu pra enviar", error.message);
+      });
+      return;
+    }
+
     setVenues((prev) =>
       prev.map((venue) =>
         venue.id === id ? { ...venue, hypeReports: [newReport, ...venue.hypeReports] } : venue
@@ -43,6 +107,18 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
       id: `${id}-rv-${Date.now()}`,
       createdAt: new Date().toISOString(),
     };
+
+    if (isFirebaseConfigured && db) {
+      updateDoc(doc(db, "venues", id), {
+        reviews: arrayUnion(newReview),
+        updatedAt: newReview.createdAt,
+      }).catch((error: Error) => {
+        console.error("addReview falhou:", error);
+        Alert.alert("Não deu pra enviar", error.message);
+      });
+      return;
+    }
+
     setVenues((prev) =>
       prev.map((venue) =>
         venue.id === id ? { ...venue, reviews: [newReview, ...venue.reviews] } : venue
@@ -64,10 +140,29 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
   // mockVenues.ts não aparece na tela até isso ser chamado (ou até um
   // reload completo do app). Chamar de novo simplesmente relê o "mockVenues"
   // importado, que a essa altura já é a versão nova do arquivo.
-  const reloadMockData = () => setVenues(mockVenues);
+  // Com o Firestore configurado isso vira no-op: o onSnapshot acima já
+  // mantém tudo atualizado sozinho, não tem "mock" pra recarregar.
+  const reloadMockData = () => {
+    if (isFirebaseConfigured) return;
+    setVenues(mockVenues);
+  };
+
+  // Roda uma vez (botão de dev, ver AppHeader.tsx) pra carregar os bares
+  // do mock pro Firestore de verdade — writeBatch em vez de um addDoc
+  // por bar, uma escrita atômica só. Usa venue.id como id do doc (não
+  // deixa o Firestore gerar um aleatório) pra ser idempotente: rodar de
+  // novo depois de editar o mock só atualiza os mesmos documentos.
+  const seedFirestoreFromMock = async () => {
+    if (!isFirebaseConfigured || !db) return;
+    const batch = writeBatch(db);
+    for (const venue of mockVenues) {
+      batch.set(doc(db, "venues", venue.id), venue);
+    }
+    await batch.commit();
+  };
 
   const value = useMemo(
-    () => ({ venues, addHypeReport, addReview, setVenueLogo, reloadMockData }),
+    () => ({ venues, addHypeReport, addReview, setVenueLogo, reloadMockData, seedFirestoreFromMock }),
     [venues]
   );
 
