@@ -1,9 +1,17 @@
-import { arrayUnion, collection, doc, onSnapshot, updateDoc, writeBatch } from "firebase/firestore";
+import {
+  arrayUnion,
+  collection,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+  updateDoc,
+  writeBatch,
+} from "firebase/firestore";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Alert } from "react-native";
 
 import { mockVenues } from "@/data/mockVenues";
-import { db, isFirebaseConfigured } from "@/services/firebase";
+import { auth, db, isFirebaseConfigured } from "@/services/firebase";
 import type { HypeReport, Review, Venue } from "@/types/venue";
 
 interface VenuesContextValue {
@@ -80,16 +88,39 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     // acima refletir a escrita (ele já dispara na hora com o dado
     // pendente, antes mesmo do servidor confirmar). Mexer nos dois
     // lados duplicaria o report por um instante.
-    // .catch obrigatório aqui: sem ele, uma escrita rejeitada (regra do
-    // Firestore negando, sem rede etc.) some em silêncio — nem loga nem
-    // avisa quem tocou no botão, a pessoa acha que enviou e não enviou.
     if (isFirebaseConfigured && db) {
-      updateDoc(doc(db, "venues", id), {
+      if (!auth?.currentUser) {
+        // Login anônimo ainda não terminou (é rapidíssimo, mas em tese
+        // pode não ter completado se a pessoa tocar assim que o app
+        // abre) — melhor avisar do que deixar a escrita ser rejeitada
+        // sem explicação.
+        Alert.alert("Só um instante", "Ainda estamos conectando — tenta de novo em alguns segundos.");
+        return;
+      }
+
+      // Anti-abuso: 1 hype report por bar a cada 30min por usuário —
+      // mesma janela usada pra calcular a nota (ver WINDOW_STEP_MIN em
+      // hype.ts), pra ninguém "empilhar" vários votos dentro da mesma
+      // janela e pesar mais que qualquer outra pessoa. A regra do
+      // Firestore (não só o app) que garante isso de verdade, lendo
+      // "venues/{id}/rateLimits/{uid}.lastReportAt" — ver firestore
+      // rules. O batch grava o report E a marca do rate-limit juntos,
+      // atômico: ou os dois entram, ou nenhum.
+      const batch = writeBatch(db);
+      batch.update(doc(db, "venues", id), {
         hypeReports: arrayUnion(newReport),
         updatedAt: newReport.createdAt,
-      }).catch((error: Error) => {
+      });
+      batch.set(doc(db, "venues", id, "rateLimits", auth.currentUser.uid), {
+        lastReportAt: serverTimestamp(),
+      });
+      batch.commit().catch((error: Error) => {
         console.error("addHypeReport falhou:", error);
-        Alert.alert("Não deu pra enviar", error.message);
+        // permission-denied aqui normalmente é o rate-limit barrando
+        // (ver regra), não precisa ser exatamente isso pro usuário —
+        // "espera um pouco" já cobre os dois casos (bloqueado ou sem
+        // permissão mesmo).
+        Alert.alert("Não deu pra enviar", "Espera um pouco antes de reportar esse bar de novo.");
       });
       return;
     }
