@@ -1,8 +1,8 @@
 import type { CityLocation } from "@/types/location";
 
-// Todas as regiões abaixo já têm bares reais cadastrados (ver
-// mockVenues.ts) — a estratégia de lançamento do README foca a
-// Cidade Baixa primeiro, mas o app já suporta múltiplas regiões.
+// Lançamento exclusivo em Porto Alegre — só bairros dessa cidade entram
+// aqui (ver mockVenues.ts pros bares reais cadastrados em cada um).
+// Expansão pra outras cidades fica pra depois da validação local.
 export const locations: CityLocation[] = [
   {
     id: "cidade-baixa-poa",
@@ -23,27 +23,6 @@ export const locations: CityLocation[] = [
     neighborhood: "Moinhos de Vento",
     city: "Porto Alegre",
     state: "RS",
-    available: true,
-  },
-  {
-    id: "centro-floripa",
-    neighborhood: "Centro",
-    city: "Florianópolis",
-    state: "SC",
-    available: true,
-  },
-  {
-    id: "vila-madalena-sp",
-    neighborhood: "Vila Madalena",
-    city: "São Paulo",
-    state: "SP",
-    available: true,
-  },
-  {
-    id: "lapa-rj",
-    neighborhood: "Lapa",
-    city: "Rio de Janeiro",
-    state: "RJ",
     available: true,
   },
 ];

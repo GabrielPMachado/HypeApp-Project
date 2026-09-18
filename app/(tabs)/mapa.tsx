@@ -157,6 +157,16 @@ export default function MapaScreen() {
     [venues, location.id]
   );
 
+  // Bares de TODOS os bairros (não só o selecionado) — todo bairro
+  // cadastrado hoje é de Porto Alegre (ver src/data/locations.ts), então
+  // isso é só "todos os bares da cidade". Renderizados no mapa inteiro
+  // pra que dar zoom out revele os bares dos bairros vizinhos também,
+  // não só o do bairro em foco.
+  const cityVenues = useMemo(
+    () => venues.filter((venue) => locations.some((loc) => loc.id === venue.locationId)),
+    [venues, locations]
+  );
+
   // Mesmo local "mais hypado agora" da Lista (ver VenueCard) — o
   // destaque especial no mapa (contorno dourado, moldura neon no
   // marcador) segue esse mesmo bar. Calculado direto no corpo do
@@ -173,7 +183,25 @@ export default function MapaScreen() {
   // Recalcula só quando muda de bairro (não a cada tick) — senão a
   // pessoa não conseguiria dar zoom/pan livremente, porque a região
   // "resetaria" pro enquadramento padrão a cada segundo.
-  const initialRegion = useMemo(() => regionForVenues(venuesInRegion), [location.id]);
+  //
+  // Sem bar nenhum na região (ex: busca livre por um lugar tipo
+  // "Ipanema" — ver LocationPickerModal) mas com coordenadas
+  // geocodificadas, ainda mostra o mapa centralizado lá (só sem
+  // círculo/marcador nenhum) — só cai no estado "sem mapa" quando nem
+  // isso a gente tem.
+  const initialRegion = useMemo(() => {
+    return (
+      regionForVenues(venuesInRegion) ??
+      (location.latitude != null && location.longitude != null
+        ? {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
+          }
+        : null)
+    );
+  }, [location.id, location.latitude, location.longitude]);
 
   const sheetVenue = venues.find((venue) => venue.id === selectedVenueId) ?? null;
 
@@ -189,7 +217,7 @@ export default function MapaScreen() {
       >
         <Feather name="map-pin" size={13} color={colors.accent} />
         <Text style={styles.locationText} numberOfLines={1}>
-          {location.neighborhood}, {location.city}
+          {location.city ? `${location.neighborhood}, ${location.city}` : location.neighborhood}
         </Text>
         <Feather name="chevron-down" size={14} color={colors.textFaint} />
       </Pressable>
@@ -241,7 +269,7 @@ export default function MapaScreen() {
               : { customMapStyle: DARK_MAP_STYLE })}
             showsBuildings
           >
-            {venuesInRegion.map((venue) => {
+            {cityVenues.map((venue) => {
               const score = rankingScore(venue);
               const level = scoreToLevel(score);
               const tone = LEVEL_COLORS[level];
@@ -327,6 +355,16 @@ export default function MapaScreen() {
 
           {floatingHeader}
 
+          {/* Mapa mostrado mesmo sem bar nenhum na região (ver
+              initialRegion) — avisa sem bloquear a visualização do
+              lugar, ao contrário do estado "sem mapa" (ver abaixo). */}
+          {venuesInRegion.length === 0 && (
+            <View style={[styles.noVenuesBanner, { top: insets.top + 64 }]} pointerEvents="none">
+              <Feather name="map-pin" size={13} color={colors.textFaint} />
+              <Text style={styles.noVenuesBannerText}>Ainda não temos bares aqui</Text>
+            </View>
+          )}
+
           <View style={styles.legend}>
             {(["low", "medium", "high"] as HypeLevel[]).map((level) => (
               <View key={level} style={styles.legendItem}>
@@ -383,10 +421,28 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
   },
+  noVenuesBanner: {
+    position: "absolute",
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(10, 10, 13, 0.88)",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  noVenuesBannerText: {
+    fontSize: 12,
+    fontFamily: fontFamily.body,
+    color: colors.textFaint,
+  },
   locationButton: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
+    alignSelf: "center",
     gap: 6,
     backgroundColor: colors.surface,
     borderWidth: 1,

@@ -8,4 +8,10 @@ export interface CityLocation {
   city: string;
   state: string;
   available: boolean;
+  // Só preenchido pra região vinda de busca livre (ver
+  // LocationPickerModal), geocodificada na hora — permite centralizar o
+  // mapa ali mesmo sem nenhum bar cadastrado. Bairros fixos (src/data/locations.ts)
+  // não precisam disso: o mapa se enquadra pelos próprios bares.
+  latitude?: number;
+  longitude?: number;
 }
