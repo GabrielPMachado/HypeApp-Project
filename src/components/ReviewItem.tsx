@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { RatingStars } from "@/components/RatingStars";
+import { useAuth } from "@/context/AuthContext";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { Review } from "@/types/venue";
@@ -8,10 +9,16 @@ import { formatRelativeTime } from "@/utils/time";
 import { getOverallRating } from "@/utils/rating";
 
 export function ReviewItem({ review }: { review: Review }) {
+  const { user } = useAuth();
+  // O authorName gravado é o nome real de quem postou (ver
+  // VenuesContext.tsx) — pro próprio autor, mostra "Você" em vez do
+  // nome, igual qualquer rede social faz com o próprio post.
+  const authorLabel = review.authorId && review.authorId === user?.uid ? "Você" : review.authorName;
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.author}>{review.authorName}</Text>
+        <Text style={styles.author}>{authorLabel}</Text>
         <Text style={styles.time}>{formatRelativeTime(review.createdAt)}</Text>
       </View>
       <RatingStars value={getOverallRating(review.rating)} size={12} />

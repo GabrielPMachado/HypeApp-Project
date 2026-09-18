@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeApp } from "firebase/app";
-import { initializeAuth, signInAnonymously } from "firebase/auth";
+import { initializeAuth } from "firebase/auth";
 // getReactNativePersistence existe de verdade no build de React Native
 // do SDK (o Metro resolve certinho em runtime, via a condição
 // "react-native" do package.json) — só o TypeScript não enxerga esse
@@ -41,14 +41,8 @@ export const auth = app
   ? initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) })
   : null;
 
-// Login anônimo automático: sem tela, sem fricção — só dá ao
-// dispositivo uma identidade estável (request.auth.uid) pras regras do
-// Firestore exigirem em vez de aceitar escrita de qualquer um. Não
-// bloqueia nada: se a chamada ainda não terminou quando o usuário tenta
-// enviar um hype report, a regra simplesmente rejeita e o alerta de
-// erro (ver VenuesContext.tsx) avisa — não trava a tela esperando.
-if (auth) {
-  signInAnonymously(auth).catch((error) => {
-    console.error("Login anônimo falhou:", error);
-  });
-}
+// Web Client ID do Google (criado automaticamente pelo Firebase ao
+// habilitar o provedor Google no Auth Console) — sem ele, o botão
+// "Continuar com Google" fica escondido na AuthScreen (ver
+// isGoogleSignInConfigured lá) em vez de quebrar em runtime.
+export const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";

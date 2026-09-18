@@ -24,6 +24,11 @@ export type PriceRange = "$" | "$$" | "$$$";
 export interface HypeReport {
   id: string;
   authorName: string;
+  // uid de quem postou (auth.currentUser?.uid) — opcional pra não quebrar
+  // dados seedados/antigos que não têm isso. Só serve pra UI decidir se
+  // mostra "Você" (é o próprio autor) ou o authorName real (é de outra
+  // pessoa) — ver ReviewItem.tsx.
+  authorId?: string;
   score: number; // 0-10, dado pelo usuário no deslizador
   createdAt: string; // ISO timestamp
 }
@@ -39,6 +44,7 @@ export interface Rating {
 export interface Review {
   id: string;
   authorName: string;
+  authorId?: string; // ver comentário em HypeReport.authorId
   rating: Rating;
   vibeTags: VibeTag[];
   comment: string;

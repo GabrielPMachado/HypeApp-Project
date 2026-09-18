@@ -9,11 +9,11 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Alert } from "react-native";
 
 import { FeedbackModal } from "@/components/FeedbackModal";
+import { useAuth } from "@/context/AuthContext";
 import { mockVenues } from "@/data/mockVenues";
-import { auth, db, isFirebaseConfigured } from "@/services/firebase";
+import { db, isFirebaseConfigured } from "@/services/firebase";
 import type { HypeReport, Review, Venue } from "@/types/venue";
 
 interface Feedback {
@@ -25,7 +25,7 @@ interface Feedback {
 interface VenuesContextValue {
   venues: Venue[];
   addHypeReport: (id: string, score: number) => void;
-  addReview: (id: string, review: Omit<Review, "id" | "createdAt">) => void;
+  addReview: (id: string, review: Omit<Review, "id" | "createdAt" | "authorName" | "authorId">) => void;
   setVenueLogo: (id: string, logoUrl: string) => void;
   reloadMockData: () => void;
   // Só pra dev: popula "venues/{id}" no Firestore com o mockVenues.ts
@@ -48,6 +48,7 @@ const VenuesContext = createContext<VenuesContextValue | undefined>(undefined);
 // configurado — sincronizar escrita é o próximo passo, depois deste
 // aqui (leitura) validado.
 export function VenuesProvider({ children }: { children: ReactNode }) {
+  const { user, profile } = useAuth();
   // Começa com o mock mesmo quando o Firestore está configurado — evita
   // a tela ficar vazia (e disparar o estado "ainda não estamos por
   // aqui") no instante entre montar e o primeiro snapshot chegar. Assim
@@ -88,7 +89,8 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
   const addHypeReport = (id: string, score: number) => {
     const newReport: HypeReport = {
       id: `${id}-hr-${Date.now()}`,
-      authorName: "Você",
+      authorName: profile?.displayName ?? "Você",
+      authorId: user?.uid,
       score,
       createdAt: new Date().toISOString(),
     };
@@ -98,18 +100,10 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     // pendente, antes mesmo do servidor confirmar). Mexer nos dois
     // lados duplicaria o report por um instante.
     if (isFirebaseConfigured && db) {
-      if (!auth?.currentUser) {
-        // Login anônimo ainda não terminou (é rapidíssimo, mas em tese
-        // pode não ter completado se a pessoa tocar assim que o app
-        // abre) — melhor avisar do que deixar a escrita ser rejeitada
-        // sem explicação.
-        setFeedback({
-          icon: "wifi",
-          title: "Só um instante",
-          message: "Ainda estamos conectando — tenta de novo em alguns segundos.",
-        });
-        return;
-      }
+      // O gate em app/_layout.tsx (AuthScreen) garante que só se chega
+      // aqui já autenticado — isso é só uma trava defensiva, não deveria
+      // disparar na prática.
+      if (!user) return;
 
       // Anti-abuso: 1 hype report por bar a cada 30min por usuário —
       // mesma janela usada pra calcular a nota (ver WINDOW_STEP_MIN em
@@ -124,7 +118,7 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
         hypeReports: arrayUnion(newReport),
         updatedAt: newReport.createdAt,
       });
-      batch.set(doc(db, "venues", id, "rateLimits", auth.currentUser.uid), {
+      batch.set(doc(db, "venues", id, "rateLimits", user.uid), {
         lastReportAt: serverTimestamp(),
       });
       batch.commit().catch((error: Error) => {
@@ -149,10 +143,12 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const addReview = (id: string, review: Omit<Review, "id" | "createdAt">) => {
+  const addReview = (id: string, review: Omit<Review, "id" | "createdAt" | "authorName" | "authorId">) => {
     const newReview: Review = {
       ...review,
       id: `${id}-rv-${Date.now()}`,
+      authorName: profile?.displayName ?? "Você",
+      authorId: user?.uid,
       createdAt: new Date().toISOString(),
     };
 
@@ -162,7 +158,11 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
         updatedAt: newReview.createdAt,
       }).catch((error: Error) => {
         console.error("addReview falhou:", error);
-        Alert.alert("Não deu pra enviar", error.message);
+        setFeedback({
+          icon: "alert-circle",
+          title: "Não deu pra enviar",
+          message: "Tenta de novo em instantes.",
+        });
       });
       return;
     }

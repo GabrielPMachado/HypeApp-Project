@@ -340,7 +340,7 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
         venueName={venue.name}
         onClose={() => setEvaluationOpen(false)}
         onSubmit={({ rating, vibeTags: selectedTags, comment }) => {
-          addReview(venue.id, { authorName: "Você", rating, vibeTags: selectedTags, comment });
+          addReview(venue.id, { rating, vibeTags: selectedTags, comment });
           setEvaluationOpen(false);
         }}
       />

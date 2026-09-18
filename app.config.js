@@ -50,6 +50,7 @@ module.exports = {
       "expo-splash-screen",
       "expo-status-bar",
       "expo-web-browser",
+      "@react-native-google-signin/google-signin",
     ],
     experiments: {
       typedRoutes: true,

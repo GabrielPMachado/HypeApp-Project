@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import type { ReactNode } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { AccountButton } from "@/components/AccountButton";
 import { useVenues } from "@/context/VenuesContext";
 import { isFirebaseConfigured } from "@/services/firebase";
 import { colors } from "@/theme/colors";
@@ -35,36 +36,40 @@ export function AppHeader({ location, onOpenLocationPicker, subtitle }: AppHeade
         <View style={styles.wordmarkDot} />
         <Text style={styles.wordmark}>HYPEAPP</Text>
 
-        {/* Só em dev: o Fast Refresh atualiza o código na hora, mas o
-            useState que guarda os venues só lê mockVenues.ts uma vez —
-            editar o arquivo não aparece sozinho na tela (ver
-            reloadMockData em VenuesContext.tsx). Esse botão relê os
-            dados sem precisar dar reload completo do app. Some sozinho
-            quando o Firestore está configurado (não tem "mock" local
-            pra recarregar nesse modo). */}
-        {__DEV__ && !isFirebaseConfigured && (
-          <Pressable
-            onPress={reloadMockData}
-            hitSlop={8}
-            style={({ pressed }) => [styles.devReloadButton, pressed && styles.devReloadButtonPressed]}
-          >
-            <Feather name="refresh-cw" size={13} color={colors.textFaint} />
-          </Pressable>
-        )}
+        <View style={styles.headerActions}>
+          {/* Só em dev: o Fast Refresh atualiza o código na hora, mas o
+              useState que guarda os venues só lê mockVenues.ts uma vez —
+              editar o arquivo não aparece sozinho na tela (ver
+              reloadMockData em VenuesContext.tsx). Esse botão relê os
+              dados sem precisar dar reload completo do app. Some sozinho
+              quando o Firestore está configurado (não tem "mock" local
+              pra recarregar nesse modo). */}
+          {__DEV__ && !isFirebaseConfigured && (
+            <Pressable
+              onPress={reloadMockData}
+              hitSlop={8}
+              style={({ pressed }) => [styles.devReloadButton, pressed && styles.devReloadButtonPressed]}
+            >
+              <Feather name="refresh-cw" size={13} color={colors.textFaint} />
+            </Pressable>
+          )}
 
-        {/* Só em dev, só com Firestore configurado: popula "venues/" a
-            partir do mockVenues.ts atual (ver seedFirestoreFromMock em
-            VenuesContext.tsx) — precisa da regra de escrita liberada
-            temporariamente, ver plano do backend. */}
-        {__DEV__ && isFirebaseConfigured && (
-          <Pressable
-            onPress={handleSeed}
-            hitSlop={8}
-            style={({ pressed }) => [styles.devReloadButton, pressed && styles.devReloadButtonPressed]}
-          >
-            <Feather name="upload-cloud" size={13} color={colors.textFaint} />
-          </Pressable>
-        )}
+          {/* Só em dev, só com Firestore configurado: popula "venues/" a
+              partir do mockVenues.ts atual (ver seedFirestoreFromMock em
+              VenuesContext.tsx) — precisa da regra de escrita liberada
+              temporariamente, ver plano do backend. */}
+          {__DEV__ && isFirebaseConfigured && (
+            <Pressable
+              onPress={handleSeed}
+              hitSlop={8}
+              style={({ pressed }) => [styles.devReloadButton, pressed && styles.devReloadButtonPressed]}
+            >
+              <Feather name="upload-cloud" size={13} color={colors.textFaint} />
+            </Pressable>
+          )}
+
+          <AccountButton />
+        </View>
       </View>
 
       <Pressable
@@ -109,8 +114,13 @@ const styles = StyleSheet.create({
     color: colors.text,
     letterSpacing: 0.5,
   },
-  devReloadButton: {
+  headerActions: {
     marginLeft: "auto",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  devReloadButton: {
     width: 26,
     height: 26,
     borderRadius: 13,
