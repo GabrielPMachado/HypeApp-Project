@@ -11,11 +11,6 @@ module.exports = {
     icon: "./assets/images/icon.png",
     scheme: "hypeapp",
     userInterfaceStyle: "dark",
-    splash: {
-      image: "./assets/images/splash.png",
-      resizeMode: "contain",
-      backgroundColor: "#0A0A0D",
-    },
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.hypeapp.app",
@@ -47,7 +42,17 @@ module.exports = {
     plugins: [
       "expo-router",
       "expo-font",
-      "expo-splash-screen",
+      // Na SDK 57 o plugin só lê estas opções (o campo "splash" do topo é
+      // ignorado) — sem elas o app abre com o splash branco padrão.
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/images/splash.png",
+          imageWidth: 240,
+          resizeMode: "contain",
+          backgroundColor: "#0A0A0D",
+        },
+      ],
       "expo-status-bar",
       "expo-web-browser",
       "@react-native-google-signin/google-signin",
