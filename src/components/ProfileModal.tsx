@@ -12,6 +12,7 @@ import {
   Section,
   StatsRow,
 } from "@/components/ProfileParts";
+import { StoreModal } from "@/components/StoreModal";
 import { useAuth } from "@/context/AuthContext";
 import { useVenues } from "@/context/VenuesContext";
 import { getItem } from "@/data/storeCatalog";
@@ -71,9 +72,10 @@ interface ProfileModalProps {
 // aqui — ver o gate em app/_layout.tsx): identidade, nível, conquistas,
 // atividade e edição. O perfil de OUTRA pessoa é o PublicProfileModal.
 export function ProfileModal({ visible, onClose }: ProfileModalProps) {
-  const { user, profile, displayName, signOut } = useAuth();
+  const { user, profile, displayName, coins, signOut } = useAuth();
   const { venues } = useVenues();
   const [isEditing, setEditing] = useState(false);
+  const [isStoreOpen, setStoreOpen] = useState(false);
 
   const stats = {
     hypeReportCount: profile?.hypeReportCount ?? 0,
@@ -124,7 +126,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
             onPressEmptyBio={() => setEditing(true)}
           />
 
-          <LevelCard info={info} points={points} />
+          <LevelCard info={info} points={points} coins={coins} onPressStore={() => setStoreOpen(true)} />
 
           <StatsRow
             hypes={stats.hypeReportCount}
@@ -155,7 +157,15 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
           </Pressable>
         </ScrollView>
 
-        <EditProfileModal visible={isEditing} onClose={() => setEditing(false)} />
+        <EditProfileModal
+          visible={isEditing}
+          onClose={() => setEditing(false)}
+          onOpenStore={() => {
+            setEditing(false);
+            setStoreOpen(true);
+          }}
+        />
+        <StoreModal visible={isStoreOpen} onClose={() => setStoreOpen(false)} />
       </SafeAreaView>
     </Modal>
   );

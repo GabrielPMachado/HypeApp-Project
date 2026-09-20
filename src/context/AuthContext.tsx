@@ -10,9 +10,11 @@ import {
   type User,
 } from "firebase/auth";
 import {
+  arrayUnion,
   deleteField,
   doc,
   getDoc,
+  increment,
   onSnapshot,
   serverTimestamp,
   setDoc,
@@ -21,6 +23,7 @@ import {
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { FeedbackModal } from "@/components/FeedbackModal";
+import type { StoreItem } from "@/data/storeCatalog";
 import { auth, db, googleWebClientId, isFirebaseConfigured } from "@/services/firebase";
 import type { VibeTag } from "@/types/venue";
 import { calcCoins, calcPoints, getLevelInfo } from "@/utils/gamification";
@@ -46,6 +49,9 @@ interface AuthContextValue {
   // Moedas disponíveis: pontos ganhos − gastos na loja (0 sem perfil).
   coins: number;
   saveProfile: (patch: ProfilePatch) => Promise<void>;
+  // Compra um item da loja: gasta as moedas e põe o item no inventário
+  // numa escrita só (as regras do Firestore conferem preço e saldo).
+  buyItem: (item: StoreItem) => Promise<void>;
   // Nome pra exibir/gravar nos posts: perfil do Firestore, senão o que o
   // Firebase Auth já tem da conta (cobre o instante antes do perfil
   // chegar e contas sem documento em users/).
@@ -228,12 +234,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const buyItem = async (item: StoreItem) => {
+    if (!db || !uid || item.price <= 0) return;
+    await updateDoc(doc(db, "users", uid), {
+      spentCoins: increment(item.price),
+      inventory: arrayUnion(item.id),
+      lastPurchaseItemId: item.id,
+    });
+  };
+
   const value = useMemo(
     () => ({
       user,
       profile,
       coins: profile ? calcCoins(profile, profile.spentCoins) : 0,
       saveProfile,
+      buyItem,
       displayName: profile?.displayName || user?.displayName || user?.email?.split("@")[0] || "",
       isAuthLoading,
       signUpWithEmail,
