@@ -27,6 +27,7 @@ import type { StoreItem } from "@/data/storeCatalog";
 import { auth, db, googleWebClientId, isFirebaseConfigured } from "@/services/firebase";
 import type { VibeTag } from "@/types/venue";
 import { calcCoins, calcPoints, getLevelInfo } from "@/utils/gamification";
+import { haptics } from "@/utils/haptics";
 import { parseProfile, type Profile } from "@/utils/profile";
 
 export const isGoogleSignInConfigured = googleWebClientId !== "";
@@ -139,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (snap.metadata.hasPendingWrites) return;
         const info = getLevelInfo(calcPoints(next));
         if (lastLevelRef.current !== null && info.level > lastLevelRef.current) {
+          haptics.success();
           setLevelUpTitle(info.title);
         }
         lastLevelRef.current = info.level;

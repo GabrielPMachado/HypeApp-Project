@@ -8,6 +8,7 @@ import {
   ActivityList,
   BadgeGrid,
   LevelCard,
+  ProfileBackdrop,
   ProfileHero,
   Section,
   StatsRow,
@@ -15,7 +16,7 @@ import {
 import { StoreModal } from "@/components/StoreModal";
 import { useAuth } from "@/context/AuthContext";
 import { useVenues } from "@/context/VenuesContext";
-import { getItem } from "@/data/storeCatalog";
+import { getFrameColor, getItem } from "@/data/storeCatalog";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import {
@@ -103,12 +104,28 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
+        <ProfileBackdrop color={getFrameColor(profile?.frameId)} />
+
         <View style={styles.topBar}>
-          <Pressable onPress={onClose} hitSlop={10} style={styles.topButton}>
+          <Pressable
+            onPress={onClose}
+            hitSlop={8}
+            style={styles.topButton}
+            accessibilityRole="button"
+            accessibilityLabel="Fechar perfil"
+          >
             <Feather name="chevron-down" size={24} color={colors.text} />
           </Pressable>
-          <Text style={styles.topTitle}>Perfil</Text>
-          <Pressable onPress={() => setEditing(true)} hitSlop={10} style={styles.topButton}>
+          <Text style={styles.topTitle} accessibilityRole="header">
+            Perfil
+          </Text>
+          <Pressable
+            onPress={() => setEditing(true)}
+            hitSlop={8}
+            style={styles.topButton}
+            accessibilityRole="button"
+            accessibilityLabel="Editar perfil"
+          >
             <Feather name="edit-2" size={19} color={colors.accent} />
           </Pressable>
         </View>
@@ -123,6 +140,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
             subtitle={subtitle}
             bio={profile?.bio ?? ""}
             vibes={profile?.favoriteVibes ?? []}
+            level={info.level}
             onPressEmptyBio={() => setEditing(true)}
           />
 
@@ -181,13 +199,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 6,
   },
   topButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },

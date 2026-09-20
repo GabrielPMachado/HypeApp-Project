@@ -16,6 +16,8 @@ export function AccountButton() {
       <Pressable
         onPress={() => setOpen(true)}
         hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir perfil"
         style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
       >
         <UserAvatar

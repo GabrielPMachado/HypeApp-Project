@@ -1,3 +1,4 @@
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -49,7 +50,14 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts(fontsToLoad);
+  // Inclui as fontes dos ícones: sem isso cada ícone carrega sozinho na
+  // primeira vez que aparece e fica em branco por alguns quadros (os
+  // avatares em glifo ficariam "vazios" ao abrir o perfil).
+  const [fontsLoaded, fontError] = useFonts({
+    ...fontsToLoad,
+    ...Feather.font,
+    ...MaterialCommunityIcons.font,
+  });
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

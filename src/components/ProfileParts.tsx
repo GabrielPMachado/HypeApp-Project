@@ -1,7 +1,16 @@
 import { Feather } from "@expo/vector-icons";
-import type { ReactNode } from "react";
+import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
+import { Coin } from "@/components/Coin";
+import { PressableScale } from "@/components/PressableScale";
 import { UserAvatar } from "@/components/UserAvatar";
 import { VIBE_TAG_LABELS } from "@/constants/vibeTags";
 import { colors } from "@/theme/colors";
@@ -31,6 +40,18 @@ export function VibeChips({ tags }: { tags: VibeTag[] }) {
   );
 }
 
+// Halo de cor no topo da tela de perfil, na cor da moldura equipada — dá
+// identidade ao perfil sem pesar (some no preto até a metade da tela).
+export function ProfileBackdrop({ color }: { color: string }) {
+  return (
+    <LinearGradient
+      pointerEvents="none"
+      colors={[`${color}38`, `${color}0F`, "transparent"]}
+      style={styles.backdrop}
+    />
+  );
+}
+
 interface ProfileHeroProps {
   name: string;
   avatarId: string;
@@ -40,6 +61,7 @@ interface ProfileHeroProps {
   subtitle?: string;
   bio: string;
   vibes: VibeTag[];
+  level?: number;
   // Só no perfil próprio: sem bio ainda, mostra um convite pra escrever.
   onPressEmptyBio?: () => void;
 }
@@ -53,11 +75,19 @@ export function ProfileHero({
   subtitle,
   bio,
   vibes,
+  level,
   onPressEmptyBio,
 }: ProfileHeroProps) {
   return (
     <View style={styles.hero}>
-      <UserAvatar name={name} avatarId={avatarId} frameId={frameId} size={96} />
+      <View style={styles.avatarWrap}>
+        <UserAvatar name={name} avatarId={avatarId} frameId={frameId} size={104} glow />
+        {level !== undefined && (
+          <View style={styles.levelChip} accessible accessibilityLabel={`Nível ${level}`}>
+            <Text style={styles.levelChipText}>NÍV. {level}</Text>
+          </View>
+        )}
+      </View>
       <Text style={styles.name} numberOfLines={1}>
         {name || "Sem nome"}
       </Text>
@@ -67,7 +97,12 @@ export function ProfileHero({
       {bio.length > 0 ? (
         <Text style={styles.bio}>{bio}</Text>
       ) : onPressEmptyBio ? (
-        <Pressable onPress={onPressEmptyBio} hitSlop={8}>
+        <Pressable
+          onPress={onPressEmptyBio}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Escrever uma bio"
+        >
           <Text style={styles.bioEmpty}>Escreva uma bio pra se apresentar</Text>
         </Pressable>
       ) : null}
@@ -86,6 +121,19 @@ interface LevelCardProps {
 }
 
 export function LevelCard({ info, points, coins, onPressStore }: LevelCardProps) {
+  // A barra "enche" até o valor atual em vez de já aparecer pronta — e
+  // anima de novo quando a pessoa ganha pontos. O piso de 3% mantém um
+  // pedacinho visível mesmo com 0 pontos.
+  const [trackWidth, setTrackWidth] = useState(0);
+  const progress = useSharedValue(0);
+  const target = Math.max(info.progress, 0.03);
+
+  useEffect(() => {
+    progress.value = withTiming(target, { duration: 700, easing: Easing.out(Easing.cubic) });
+  }, [target]);
+
+  const fillStyle = useAnimatedStyle(() => ({ width: progress.value * trackWidth }));
+
   return (
     <View style={styles.levelCard}>
       <View style={styles.levelTopRow}>
@@ -93,8 +141,15 @@ export function LevelCard({ info, points, coins, onPressStore }: LevelCardProps)
         <Text style={styles.points}>{points} pts</Text>
       </View>
       <Text style={styles.levelTitle}>{info.title}</Text>
-      <View style={styles.track}>
-        <View style={[styles.fill, { width: `${Math.max(info.progress, 0.03) * 100}%` }]} />
+      <View
+        style={styles.track}
+        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+        accessible
+        accessibilityRole="progressbar"
+        accessibilityLabel={`Progresso do nível ${info.level}`}
+        accessibilityValue={{ min: 0, max: 100, now: Math.round(info.progress * 100) }}
+      >
+        <Animated.View style={[styles.fill, fillStyle]} />
       </View>
       <Text style={styles.levelHint}>
         {info.nextTitle
@@ -104,16 +159,22 @@ export function LevelCard({ info, points, coins, onPressStore }: LevelCardProps)
 
       {coins !== undefined && (
         <View style={styles.coinsRow}>
-          <Text style={styles.coinsText}>🪙 {coins} moedas</Text>
+          <View style={styles.coinsLabel} accessible accessibilityLabel={`${coins} moedas`}>
+            <Coin size={24} />
+            <Text style={styles.coinsText}>{coins}</Text>
+            <Text style={styles.coinsUnit}>moedas</Text>
+          </View>
           {onPressStore && (
-            <Pressable
+            <PressableScale
               onPress={onPressStore}
               hitSlop={8}
-              style={({ pressed }) => [styles.storeButton, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir a loja"
+              style={styles.storeButton}
             >
-              <Feather name="shopping-bag" size={13} color={colors.background} />
+              <Feather name="shopping-bag" size={14} color={colors.background} />
               <Text style={styles.storeButtonText}>Loja</Text>
-            </Pressable>
+            </PressableScale>
           )}
         </View>
       )}
@@ -153,7 +214,14 @@ export function BadgeGrid({ badges }: { badges: Badge[] }) {
   return (
     <View style={styles.badgeGrid}>
       {badges.map((badge) => (
-        <View key={badge.id} style={styles.badgeCell}>
+        <View
+          key={badge.id}
+          style={styles.badgeCell}
+          accessible
+          accessibilityLabel={`${badge.name}. ${
+            badge.unlocked ? "Conquistada" : `Bloqueada, progresso ${badge.progress}`
+          }. ${badge.description}`}
+        >
           <View style={[styles.badgeIcon, badge.unlocked && styles.badgeIconUnlocked]}>
             <Feather
               name={badge.unlocked ? badge.icon : "lock"}
@@ -233,9 +301,36 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
 
+  backdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 360,
+  },
   hero: {
     alignItems: "center",
     gap: 6,
+  },
+  avatarWrap: {
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  levelChip: {
+    position: "absolute",
+    bottom: -9,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  levelChipText: {
+    fontSize: 10.5,
+    fontFamily: fontFamily.bodySemiBold,
+    color: colors.accent,
+    letterSpacing: 0.6,
   },
   name: {
     fontSize: 22,
@@ -347,10 +442,20 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     marginTop: 6,
   },
+  coinsLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   coinsText: {
-    fontSize: 14,
-    fontFamily: fontFamily.bodySemiBold,
+    fontSize: 20,
+    fontFamily: fontFamily.display,
     color: colors.text,
+  },
+  coinsUnit: {
+    fontSize: 13,
+    fontFamily: fontFamily.body,
+    color: colors.textMuted,
   },
   storeButton: {
     flexDirection: "row",

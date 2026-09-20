@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Coin } from "@/components/Coin";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth, type ProfilePatch } from "@/context/AuthContext";
 import { ALL_VIBE_TAGS, VIBE_TAG_LABELS } from "@/constants/vibeTags";
@@ -20,12 +21,15 @@ import {
   canUseItem,
   DEFAULT_AVATAR_ID,
   DEFAULT_FRAME_ID,
+  getItem,
   itemsOfKind,
   type StoreItem,
 } from "@/data/storeCatalog";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { VibeTag } from "@/types/venue";
+import { calcPoints, getLevelInfo } from "@/utils/gamification";
+import { haptics } from "@/utils/haptics";
 
 const NAME_MIN = 2;
 const NAME_MAX = 30;
@@ -79,6 +83,16 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
   const hasChanges = Object.keys(patch).length > 0;
   const canSave = hasChanges && nameValid && !isSaving;
 
+  // Título mostrado na prévia: o escolhido ou, sem escolha, o do nível.
+  const levelTitle = getLevelInfo(
+    calcPoints({
+      hypeReportCount: profile?.hypeReportCount ?? 0,
+      reviewCount: profile?.reviewCount ?? 0,
+    })
+  ).title;
+  const chosenTitle = getItem(titleId);
+  const previewTitle = { label: chosenTitle?.name ?? levelTitle, color: chosenTitle?.color ?? colors.accent };
+
   const toggleVibe = (tag: VibeTag) => {
     setVibes((prev) => {
       if (prev.includes(tag)) return prev.filter((t) => t !== tag);
@@ -102,9 +116,11 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
     setSaving(true);
     try {
       await saveProfile(patch);
+      haptics.confirm();
       onClose();
     } catch (saveError) {
       console.error("Perfil: não consegui salvar:", saveError);
+      haptics.warning();
       setError("Não deu pra salvar agora. Tenta de novo em instantes.");
     } finally {
       setSaving(false);
@@ -119,7 +135,13 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
     return (
       <Pressable
         key={item.id}
-        onPress={() => handleItemPress(item)}
+        onPress={() => {
+          haptics.tap();
+          handleItemPress(item);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.name}${locked ? `, bloqueado, custa ${item.price} moedas` : ""}`}
+        accessibilityState={{ selected }}
         style={({ pressed }) => [styles.cell, selected && styles.cellSelected, pressed && styles.pressed]}
       >
         {item.kind === "title" ? (
@@ -141,7 +163,7 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
         </Text>
         {locked && (
           <View style={styles.lockRow}>
-            <Feather name="lock" size={10} color={colors.textFaint} />
+            <Coin size={13} />
             <Text style={styles.lockText}>{item.price}</Text>
           </View>
         )}
@@ -153,15 +175,44 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
         <View style={styles.topBar}>
-          <Pressable onPress={onClose} hitSlop={10} style={styles.topButton}>
+          <Pressable
+            onPress={onClose}
+            hitSlop={8}
+            style={styles.topButton}
+            accessibilityRole="button"
+            accessibilityLabel="Fechar sem salvar"
+          >
             <Feather name="x" size={22} color={colors.text} />
           </Pressable>
-          <Text style={styles.topTitle}>Editar perfil</Text>
-          <Pressable onPress={handleSave} disabled={!canSave} hitSlop={10} style={styles.saveButton}>
+          <Text style={styles.topTitle} accessibilityRole="header">
+            Editar perfil
+          </Text>
+          <Pressable
+            onPress={handleSave}
+            disabled={!canSave}
+            hitSlop={8}
+            style={styles.saveButton}
+            accessibilityRole="button"
+            accessibilityLabel="Salvar alterações"
+            accessibilityState={{ disabled: !canSave }}
+          >
             <Text style={[styles.saveText, !canSave && styles.saveTextDisabled]}>
               {isSaving ? "Salvando..." : "Salvar"}
             </Text>
           </Pressable>
+        </View>
+
+        {/* Prévia fixa: fica à vista enquanto a pessoa rola e escolhe. */}
+        <View style={styles.previewBar}>
+          <UserAvatar name={name} avatarId={avatarId} frameId={frameId} size={60} glow />
+          <View style={styles.previewText}>
+            <Text style={styles.previewName} numberOfLines={1}>
+              {trimmedName || "Seu nome"}
+            </Text>
+            <Text style={[styles.previewTitle, { color: previewTitle.color }]} numberOfLines={1}>
+              {previewTitle.label}
+            </Text>
+          </View>
         </View>
 
         <KeyboardAvoidingView
@@ -173,10 +224,6 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.preview}>
-              <UserAvatar name={name} avatarId={avatarId} frameId={frameId} size={80} />
-            </View>
-
             <View style={styles.field}>
               <Text style={styles.label}>Nome</Text>
               <TextInput
@@ -224,7 +271,13 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
                   return (
                     <Pressable
                       key={tag}
-                      onPress={() => toggleVibe(tag)}
+                      onPress={() => {
+                        haptics.tap();
+                        toggleVibe(tag);
+                      }}
+                      accessibilityRole="checkbox"
+                      accessibilityLabel={VIBE_TAG_LABELS[tag]}
+                      accessibilityState={{ checked: selected }}
                       style={({ pressed }) => [
                         styles.chip,
                         selected && styles.chipSelected,
@@ -297,13 +350,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 6,
   },
   topButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -313,8 +364,8 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   saveButton: {
-    minWidth: 40,
-    height: 40,
+    minWidth: 44,
+    height: 44,
     alignItems: "flex-end",
     justifyContent: "center",
   },
@@ -331,8 +382,29 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
     gap: 22,
   },
-  preview: {
+  previewBar: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  previewText: {
+    flex: 1,
+    gap: 2,
+  },
+  previewName: {
+    fontSize: 18,
+    fontFamily: fontFamily.display,
+    color: colors.text,
+  },
+  previewTitle: {
+    fontSize: 12.5,
+    fontFamily: fontFamily.bodySemiBold,
+    letterSpacing: 0.3,
   },
   field: {
     gap: 8,
@@ -442,7 +514,7 @@ const styles = StyleSheet.create({
   lockRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: 4,
   },
   lockText: {
     fontSize: 10,
