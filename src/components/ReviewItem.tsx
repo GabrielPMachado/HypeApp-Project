@@ -1,5 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { PublicProfileModal } from "@/components/PublicProfileModal";
 import { RatingStars } from "@/components/RatingStars";
 import { useAuth } from "@/context/AuthContext";
 import { colors } from "@/theme/colors";
@@ -10,19 +12,40 @@ import { getOverallRating } from "@/utils/rating";
 
 export function ReviewItem({ review }: { review: Review }) {
   const { user } = useAuth();
+  const [isProfileOpen, setProfileOpen] = useState(false);
+
   // O authorName gravado é o nome real de quem postou (ver
   // VenuesContext.tsx) — pro próprio autor, mostra "Você" em vez do
   // nome, igual qualquer rede social faz com o próprio post.
-  const authorLabel = review.authorId && review.authorId === user?.uid ? "Você" : review.authorName;
+  const isMine = !!review.authorId && review.authorId === user?.uid;
+  const authorLabel = isMine ? "Você" : review.authorName;
+
+  // Tocar no nome de OUTRA pessoa abre o perfil dela. Avaliações antigas
+  // (dados de exemplo) não têm authorId — nome sem link.
+  const canOpenProfile = !!review.authorId && !isMine;
 
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.author}>{authorLabel}</Text>
+        {canOpenProfile ? (
+          <Pressable onPress={() => setProfileOpen(true)} hitSlop={8}>
+            <Text style={[styles.author, styles.authorLink]}>{authorLabel}</Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.author}>{authorLabel}</Text>
+        )}
         <Text style={styles.time}>{formatRelativeTime(review.createdAt)}</Text>
       </View>
       <RatingStars value={getOverallRating(review.rating)} size={12} />
       {review.comment.length > 0 && <Text style={styles.comment}>{review.comment}</Text>}
+
+      {canOpenProfile && (
+        <PublicProfileModal
+          uid={review.authorId ?? null}
+          visible={isProfileOpen}
+          onClose={() => setProfileOpen(false)}
+        />
+      )}
     </View>
   );
 }
@@ -42,6 +65,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.bodySemiBold,
     color: colors.text,
+  },
+  authorLink: {
+    textDecorationLine: "underline",
+    textDecorationColor: colors.borderStrong,
   },
   time: {
     fontSize: 11,

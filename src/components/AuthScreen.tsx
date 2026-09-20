@@ -57,6 +57,13 @@ export function AuthScreen() {
 
   const handleSubmit = async () => {
     setError("");
+    // O perfil é público e as regras do Firestore exigem nome de 2 a 30
+    // letras — melhor barrar aqui do que criar a conta e falhar ao gravar
+    // o perfil.
+    if (mode === "signup" && (name.trim().length < 2 || name.trim().length > 30)) {
+      setError("Digita seu nome (entre 2 e 30 letras).");
+      return;
+    }
     setSubmitting(true);
     try {
       if (mode === "signup") {

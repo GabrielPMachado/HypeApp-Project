@@ -9,23 +9,43 @@ import {
   updateProfile,
   type User,
 } from "firebase/auth";
-import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  deleteField,
+  doc,
+  getDoc,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { auth, db, googleWebClientId, isFirebaseConfigured } from "@/services/firebase";
-import { calcPoints, getLevelInfo, type UserStats } from "@/utils/gamification";
+import type { VibeTag } from "@/types/venue";
+import { calcCoins, calcPoints, getLevelInfo } from "@/utils/gamification";
+import { parseProfile, type Profile } from "@/utils/profile";
 
 export const isGoogleSignInConfigured = googleWebClientId !== "";
 
-export interface Profile extends UserStats {
-  displayName: string;
-  email: string;
+// Campos que a própria pessoa edita no perfil (titleId null = voltar pro
+// título do nível). As regras do Firestore validam tamanhos e se o item
+// equipado é gratuito ou está no inventário.
+export interface ProfilePatch {
+  displayName?: string;
+  bio?: string;
+  favoriteVibes?: VibeTag[];
+  avatarId?: string;
+  frameId?: string;
+  titleId?: string | null;
 }
 
 interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
+  // Moedas disponíveis: pontos ganhos − gastos na loja (0 sem perfil).
+  coins: number;
+  saveProfile: (patch: ProfilePatch) => Promise<void>;
   // Nome pra exibir/gravar nos posts: perfil do Firestore, senão o que o
   // Firebase Auth já tem da conta (cobre o instante antes do perfil
   // chegar e contas sem documento em users/).
@@ -52,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // destrava (ver bypass do gate em app/_layout.tsx).
   const [isAuthLoading, setAuthLoading] = useState(isFirebaseConfigured);
   const lastLevelRef = useRef<number | null>(null);
+  const emailCleanedRef = useRef(false);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !auth) return;
@@ -70,17 +91,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // avaliação enviados, e o menu do usuário precisa refletir isso na hora.
   useEffect(() => {
     lastLevelRef.current = null;
+    emailCleanedRef.current = false;
     if (!uid || !db) {
       setProfile(null);
       return;
     }
+
+    const profileRef = doc(db, "users", uid);
 
     // includeMetadataChanges: sem isso o Firestore NÃO dispara de novo
     // quando a escrita otimista só passa de "pendente" pra "confirmada"
     // (os dados são iguais) — e é justamente nesse snapshot confirmado
     // que a subida de nível é detectada abaixo.
     return onSnapshot(
-      doc(db, "users", uid),
+      profileRef,
       { includeMetadataChanges: true },
       (snap) => {
         if (!snap.exists()) {
@@ -88,15 +112,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const data = snap.data() as Partial<Profile>;
-        const next: Profile = {
-          displayName: data.displayName ?? "",
-          email: data.email ?? "",
-          // Contas antigas (criadas antes da gamificação) não têm os
-          // contadores no documento — contam como zero.
-          hypeReportCount: data.hypeReportCount ?? 0,
-          reviewCount: data.reviewCount ?? 0,
-        };
+        const data = snap.data();
+
+        // O perfil agora é público (qualquer usuário logado lê) e não
+        // pode guardar dado pessoal: contas criadas antes disso têm o
+        // e-mail no documento — apaga na primeira vez que a pessoa entra.
+        if ("email" in data && !emailCleanedRef.current) {
+          emailCleanedRef.current = true;
+          updateDoc(profileRef, { email: deleteField() }).catch((error) =>
+            console.error("Perfil: não consegui remover o e-mail antigo:", error)
+          );
+        }
+
+        const next = parseProfile(data);
         setProfile(next);
 
         // Só compara com escrita CONFIRMADA: o snapshot otimista de uma
@@ -119,9 +147,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await updateProfile(credential.user, { displayName: name });
     await setDoc(doc(db, "users", credential.user.uid), {
       displayName: name,
-      email,
       hypeReportCount: 0,
       reviewCount: 0,
+      spentCoins: 0,
+      inventory: [],
       createdAt: serverTimestamp(),
     });
   };
@@ -156,11 +185,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // (conta já tem perfil) não sobrescreve o que a pessoa já editou.
     const existing = await getDoc(doc(db, "users", result.user.uid));
     if (!existing.exists()) {
+      // Sem nome na conta Google, usa a parte antes do @ — o documento é
+      // público, então nunca o e-mail inteiro.
+      const displayName = (googleUser.name || googleUser.email.split("@")[0]).slice(0, 30);
       await setDoc(doc(db, "users", result.user.uid), {
-        displayName: googleUser.name ?? googleUser.email,
-        email: googleUser.email,
+        displayName,
         hypeReportCount: 0,
         reviewCount: 0,
+        spentCoins: 0,
+        inventory: [],
         createdAt: serverTimestamp(),
       });
     }
@@ -180,11 +213,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await sendPasswordResetEmail(auth, email);
   };
 
+  const saveProfile = async (patch: ProfilePatch) => {
+    if (!db || !uid) return;
+    const { titleId, ...rest } = patch;
+    await updateDoc(doc(db, "users", uid), {
+      ...rest,
+      // titleId null = voltar pro título do nível (o campo some do doc).
+      ...(titleId === undefined ? {} : { titleId: titleId === null ? deleteField() : titleId }),
+    });
+    // Mantém o nome do Firebase Auth em dia (é o fallback do displayName
+    // enquanto o perfil não carrega).
+    if (patch.displayName && auth?.currentUser) {
+      await updateProfile(auth.currentUser, { displayName: patch.displayName });
+    }
+  };
+
   const value = useMemo(
     () => ({
       user,
       profile,
-      displayName: profile?.displayName || user?.displayName || user?.email || "",
+      coins: profile ? calcCoins(profile, profile.spentCoins) : 0,
+      saveProfile,
+      displayName: profile?.displayName || user?.displayName || user?.email?.split("@")[0] || "",
       isAuthLoading,
       signUpWithEmail,
       signInWithEmail,

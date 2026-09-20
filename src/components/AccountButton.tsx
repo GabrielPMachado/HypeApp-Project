@@ -1,17 +1,15 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
 
-import { AccountModal } from "@/components/AccountModal";
+import { ProfileModal } from "@/components/ProfileModal";
+import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { colors } from "@/theme/colors";
-import { fontFamily } from "@/theme/typography";
 
-// Iniciais no header em vez de um ícone genérico — dá pra reconhecer a
-// própria conta de relance. Abre o AccountModal com os detalhes/Sair.
+// O avatar da própria pessoa no header — reconhecível de relance (emoji e
+// moldura equipados). Abre o perfil completo.
 export function AccountButton() {
-  const { displayName } = useAuth();
+  const { displayName, profile } = useAuth();
   const [isOpen, setOpen] = useState(false);
-  const initial = (displayName || "?").charAt(0).toUpperCase();
 
   return (
     <>
@@ -20,31 +18,25 @@ export function AccountButton() {
         hitSlop={8}
         style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
       >
-        <Text style={styles.initial}>{initial}</Text>
+        <UserAvatar
+          name={displayName}
+          avatarId={profile?.avatarId}
+          frameId={profile?.frameId}
+          size={32}
+        />
       </Pressable>
 
-      <AccountModal visible={isOpen} onClose={() => setOpen(false)} />
+      <ProfileModal visible={isOpen} onClose={() => setOpen(false)} />
     </>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.accentMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
+    width: 32,
+    height: 32,
   },
   buttonPressed: {
     opacity: 0.75,
-  },
-  initial: {
-    fontSize: 12,
-    fontFamily: fontFamily.bodySemiBold,
-    color: colors.accent,
   },
 });
