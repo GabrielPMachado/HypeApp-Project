@@ -9,14 +9,16 @@ import {
   updateProfile,
   type User,
 } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { FeedbackModal } from "@/components/FeedbackModal";
 import { auth, db, googleWebClientId, isFirebaseConfigured } from "@/services/firebase";
+import { calcPoints, getLevelInfo, type UserStats } from "@/utils/gamification";
 
 export const isGoogleSignInConfigured = googleWebClientId !== "";
 
-interface Profile {
+export interface Profile extends UserStats {
   displayName: string;
   email: string;
 }
@@ -24,6 +26,10 @@ interface Profile {
 interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
+  // Nome pra exibir/gravar nos posts: perfil do Firestore, senão o que o
+  // Firebase Auth já tem da conta (cobre o instante antes do perfil
+  // chegar e contas sem documento em users/).
+  displayName: string;
   // Enquanto true, ainda não sabemos se tem sessão — o gate em
   // app/_layout.tsx espera isso virar false antes de decidir entre
   // AuthScreen e o app de verdade, pra não "piscar" a tela de login
@@ -38,32 +44,74 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-async function loadProfile(uid: string): Promise<Profile | null> {
-  if (!db) return null;
-  const snap = await getDoc(doc(db, "users", uid));
-  if (!snap.exists()) return null;
-  const data = snap.data() as Profile;
-  return { displayName: data.displayName, email: data.email };
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [levelUpTitle, setLevelUpTitle] = useState<string | null>(null);
   // Sem Firebase configurado não tem sessão nenhuma pra esperar — já
   // destrava (ver bypass do gate em app/_layout.tsx).
   const [isAuthLoading, setAuthLoading] = useState(isFirebaseConfigured);
+  const lastLevelRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !auth) return;
 
-    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+    return onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
-      setProfile(nextUser ? await loadProfile(nextUser.uid) : null);
       setAuthLoading(false);
     });
-
-    return unsubscribe;
   }, []);
+
+  // Sessões anônimas de antes do login obrigatório não têm perfil (ver o
+  // gate em app/_layout.tsx) — só conta real assina o documento.
+  const uid = user && !user.isAnonymous ? user.uid : null;
+
+  // Perfil em tempo real: os contadores de pontos mudam a cada hype/
+  // avaliação enviados, e o menu do usuário precisa refletir isso na hora.
+  useEffect(() => {
+    lastLevelRef.current = null;
+    if (!uid || !db) {
+      setProfile(null);
+      return;
+    }
+
+    // includeMetadataChanges: sem isso o Firestore NÃO dispara de novo
+    // quando a escrita otimista só passa de "pendente" pra "confirmada"
+    // (os dados são iguais) — e é justamente nesse snapshot confirmado
+    // que a subida de nível é detectada abaixo.
+    return onSnapshot(
+      doc(db, "users", uid),
+      { includeMetadataChanges: true },
+      (snap) => {
+        if (!snap.exists()) {
+          setProfile(null);
+          return;
+        }
+
+        const data = snap.data() as Partial<Profile>;
+        const next: Profile = {
+          displayName: data.displayName ?? "",
+          email: data.email ?? "",
+          // Contas antigas (criadas antes da gamificação) não têm os
+          // contadores no documento — contam como zero.
+          hypeReportCount: data.hypeReportCount ?? 0,
+          reviewCount: data.reviewCount ?? 0,
+        };
+        setProfile(next);
+
+        // Só compara com escrita CONFIRMADA: o snapshot otimista de uma
+        // escrita ainda pendente pode ser derrubado pelas regras (ex:
+        // cooldown) e não deve disparar "Subiu de nível!" à toa.
+        if (snap.metadata.hasPendingWrites) return;
+        const info = getLevelInfo(calcPoints(next));
+        if (lastLevelRef.current !== null && info.level > lastLevelRef.current) {
+          setLevelUpTitle(info.title);
+        }
+        lastLevelRef.current = info.level;
+      },
+      (error) => console.error("Perfil: leitura falhou:", error)
+    );
+  }, [uid]);
 
   const signUpWithEmail = async (name: string, email: string, password: string) => {
     if (!auth || !db) return;
@@ -72,12 +120,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await setDoc(doc(db, "users", credential.user.uid), {
       displayName: name,
       email,
+      hypeReportCount: 0,
+      reviewCount: 0,
       createdAt: serverTimestamp(),
     });
-    // Não espera o próximo onAuthStateChanged pra ter o profile — ele
-    // vai disparar de qualquer forma, mas setar aqui evita a UI mostrar
-    // "Você" (perfil null) por um instante logo depois do cadastro.
-    setProfile({ displayName: name, email });
   };
 
   const signInWithEmail = async (email: string, password: string) => {
@@ -110,13 +156,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // (conta já tem perfil) não sobrescreve o que a pessoa já editou.
     const existing = await getDoc(doc(db, "users", result.user.uid));
     if (!existing.exists()) {
-      const displayName = googleUser.name ?? googleUser.email;
       await setDoc(doc(db, "users", result.user.uid), {
-        displayName,
+        displayName: googleUser.name ?? googleUser.email,
         email: googleUser.email,
+        hypeReportCount: 0,
+        reviewCount: 0,
         createdAt: serverTimestamp(),
       });
-      setProfile({ displayName, email: googleUser.email });
     }
   };
 
@@ -138,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       profile,
+      displayName: profile?.displayName || user?.displayName || user?.email || "",
       isAuthLoading,
       signUpWithEmail,
       signInWithEmail,
@@ -148,7 +195,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [user, profile, isAuthLoading]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <FeedbackModal
+        visible={levelUpTitle !== null}
+        icon="award"
+        title="Subiu de nível!"
+        message={levelUpTitle ? `Agora você é ${levelUpTitle}.` : ""}
+        onClose={() => setLevelUpTitle(null)}
+      />
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

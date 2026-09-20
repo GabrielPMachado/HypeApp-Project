@@ -68,7 +68,9 @@ export function AppHeader({ location, onOpenLocationPicker, subtitle }: AppHeade
             </Pressable>
           )}
 
-          <AccountButton />
+          {/* Sem Firebase (modo mock) não existe conta — o menu não teria
+              nome, pontos nem como sair. */}
+          {isFirebaseConfigured && <AccountButton />}
         </View>
       </View>
 

@@ -9,9 +9,9 @@ import { fontFamily } from "@/theme/typography";
 // Iniciais no header em vez de um ícone genérico — dá pra reconhecer a
 // própria conta de relance. Abre o AccountModal com os detalhes/Sair.
 export function AccountButton() {
-  const { profile } = useAuth();
+  const { displayName } = useAuth();
   const [isOpen, setOpen] = useState(false);
-  const initial = (profile?.displayName ?? "?").charAt(0).toUpperCase();
+  const initial = (displayName || "?").charAt(0).toUpperCase();
 
   return (
     <>

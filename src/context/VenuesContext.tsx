@@ -3,9 +3,9 @@ import {
   arrayUnion,
   collection,
   doc,
+  increment,
   onSnapshot,
   serverTimestamp,
-  updateDoc,
   writeBatch,
 } from "firebase/firestore";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
@@ -48,7 +48,7 @@ const VenuesContext = createContext<VenuesContextValue | undefined>(undefined);
 // configurado — sincronizar escrita é o próximo passo, depois deste
 // aqui (leitura) validado.
 export function VenuesProvider({ children }: { children: ReactNode }) {
-  const { user, profile } = useAuth();
+  const { user, displayName } = useAuth();
   // Começa com o mock mesmo quando o Firestore está configurado — evita
   // a tela ficar vazia (e disparar o estado "ainda não estamos por
   // aqui") no instante entre montar e o primeiro snapshot chegar. Assim
@@ -89,7 +89,7 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
   const addHypeReport = (id: string, score: number) => {
     const newReport: HypeReport = {
       id: `${id}-hr-${Date.now()}`,
-      authorName: profile?.displayName ?? "Você",
+      authorName: displayName || "Você",
       authorId: user?.uid,
       score,
       createdAt: new Date().toISOString(),
@@ -121,6 +121,14 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
       batch.set(doc(db, "venues", id, "rateLimits", user.uid), {
         lastReportAt: serverTimestamp(),
       });
+      // Pontos (ver utils/gamification.ts): guarda só o contador, e a
+      // regra do Firestore só deixa ele subir +1 se o bar acima ganhou
+      // mesmo um report NESTE batch — daí o lastAwardVenueId, que diz à
+      // regra qual bar conferir.
+      batch.update(doc(db, "users", user.uid), {
+        hypeReportCount: increment(1),
+        lastAwardVenueId: id,
+      });
       batch.commit().catch((error: Error) => {
         console.error("addHypeReport falhou:", error);
         // permission-denied aqui normalmente é o rate-limit barrando
@@ -147,22 +155,44 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     const newReview: Review = {
       ...review,
       id: `${id}-rv-${Date.now()}`,
-      authorName: profile?.displayName ?? "Você",
+      authorName: displayName || "Você",
       authorId: user?.uid,
       createdAt: new Date().toISOString(),
     };
 
     if (isFirebaseConfigured && db) {
-      updateDoc(doc(db, "venues", id), {
+      if (!user) return; // trava defensiva, ver addHypeReport
+
+      // Mesmo desenho do hype report: bar + marca de limite (1 avaliação
+      // por bar a cada 24h, ver regra do Firestore) + contador de pontos,
+      // tudo num batch atômico.
+      const batch = writeBatch(db);
+      batch.update(doc(db, "venues", id), {
         reviews: arrayUnion(newReview),
         updatedAt: newReview.createdAt,
-      }).catch((error: Error) => {
+      });
+      batch.set(doc(db, "venues", id, "reviewLimits", user.uid), {
+        lastReviewAt: serverTimestamp(),
+      });
+      batch.update(doc(db, "users", user.uid), {
+        reviewCount: increment(1),
+        lastAwardVenueId: id,
+      });
+      batch.commit().catch((error: { code?: string }) => {
         console.error("addReview falhou:", error);
-        setFeedback({
-          icon: "alert-circle",
-          title: "Não deu pra enviar",
-          message: "Tenta de novo em instantes.",
-        });
+        setFeedback(
+          error.code === "permission-denied"
+            ? {
+                icon: "clock",
+                title: "Não deu pra enviar",
+                message: "Você já avaliou esse bar hoje — volta amanhã pra avaliar de novo.",
+              }
+            : {
+                icon: "alert-circle",
+                title: "Não deu pra enviar",
+                message: "Tenta de novo em instantes.",
+              }
+        );
       });
       return;
     }
@@ -209,9 +239,13 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     await batch.commit();
   };
 
+  // user/displayName nas deps: addHypeReport/addReview leem os dois por
+  // closure — sem isso, logo depois do login elas ficariam presas ao
+  // "user = null" do render anterior (e o envio seria ignorado em
+  // silêncio) até algum bar mudar no Firestore.
   const value = useMemo(
     () => ({ venues, addHypeReport, addReview, setVenueLogo, reloadMockData, seedFirestoreFromMock }),
-    [venues]
+    [venues, user, displayName]
   );
 
   return (

@@ -63,16 +63,21 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <AuthProvider>
-          <LocationProvider>
-            <VenuesProvider>
+      <AuthProvider>
+        <LocationProvider>
+          <VenuesProvider>
+            {/* Por dentro dos outros providers de propósito: o conteúdo de
+                um BottomSheetModal é renderizado num portal na posição
+                deste provider (não onde o sheet é declarado) — se ele
+                ficasse acima, tudo dentro dos sheets perderia os
+                contextos (useAuth, useVenues...). */}
+            <BottomSheetModalProvider>
               <StatusBar style="light" />
               <RootNavigator />
-            </VenuesProvider>
-          </LocationProvider>
-        </AuthProvider>
-      </BottomSheetModalProvider>
+            </BottomSheetModalProvider>
+          </VenuesProvider>
+        </LocationProvider>
+      </AuthProvider>
     </GestureHandlerRootView>
   );
 }
