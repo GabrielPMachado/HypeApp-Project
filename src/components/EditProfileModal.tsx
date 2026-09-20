@@ -311,7 +311,13 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
               <Text style={styles.label}>Título</Text>
               <View style={styles.grid}>
                 <Pressable
-                  onPress={() => setTitleId(null)}
+                  onPress={() => {
+                    haptics.tap();
+                    setTitleId(null);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Usar o título do meu nível"
+                  accessibilityState={{ selected: titleId === null }}
                   style={({ pressed }) => [
                     styles.cell,
                     titleId === null && styles.cellSelected,

@@ -16,7 +16,10 @@ export const colors = {
 
   text: "#F2F2F4",
   textMuted: "#9497A0",
-  textFaint: "#5C5F68",
+  // Contraste ≥ 4,5:1 sobre o fundo e as superfícies (mínimo AA pra texto
+  // pequeno) — o tom anterior (#5C5F68) ficava em ~3:1 e dificultava ler
+  // horários, legendas e placeholders.
+  textFaint: "#868993",
 
   accent: "#E8B24D", // âmbar — usado só em ênfase (destaque, seleção, dados)
   accentMuted: "rgba(232, 178, 77, 0.16)",

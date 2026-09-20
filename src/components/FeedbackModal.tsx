@@ -19,9 +19,14 @@ export function FeedbackModal({ visible, icon, title, message, onClose }: Feedba
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Fechar aviso"
+        />
 
-        <View style={styles.card}>
+        <View style={styles.card} accessibilityViewIsModal accessibilityLiveRegion="polite">
           <View style={styles.iconCircle}>
             <Feather name={icon} size={22} color={colors.accent} />
           </View>
@@ -31,6 +36,8 @@ export function FeedbackModal({ visible, icon, title, message, onClose }: Feedba
 
           <Pressable
             onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Entendi"
             style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           >
             <Text style={styles.buttonText}>Entendi</Text>

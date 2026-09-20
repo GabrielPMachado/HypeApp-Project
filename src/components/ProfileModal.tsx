@@ -168,6 +168,8 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
 
           <Pressable
             onPress={handleSignOut}
+            accessibilityRole="button"
+            accessibilityLabel="Sair da conta"
             style={({ pressed }) => [styles.signOutButton, pressed && styles.signOutButtonPressed]}
           >
             <Feather name="log-out" size={15} color={colors.hypeHigh} />

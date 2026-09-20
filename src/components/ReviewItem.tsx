@@ -28,7 +28,12 @@ export function ReviewItem({ review }: { review: Review }) {
     <View style={styles.container}>
       <View style={styles.headerRow}>
         {canOpenProfile ? (
-          <Pressable onPress={() => setProfileOpen(true)} hitSlop={8}>
+          <Pressable
+            onPress={() => setProfileOpen(true)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`Ver perfil de ${review.authorName}`}
+          >
             <Text style={[styles.author, styles.authorLink]}>{authorLabel}</Text>
           </Pressable>
         ) : (

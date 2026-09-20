@@ -32,6 +32,11 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
     <NeonBorder active={isLeader} borderRadius={18} borderWidth={2}>
       <Pressable
         onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${venue.name}, ${rank}º no ranking, hype ${(hypeStatus?.score ?? venue.hypeScore).toFixed(1).replace(".", ",")}${
+          isLeader ? ", o mais hypado agora" : ""
+        }`}
+        accessibilityHint="Abre os detalhes do local"
         style={({ pressed }) => [
           styles.card,
           isLeader && styles.cardLeaderInner,
@@ -166,7 +171,13 @@ function TagsRow({ leading, tags }: TagsRowProps) {
           </View>
         ))}
         {!expanded && hiddenCount > 0 && (
-          <Pressable onPress={() => setExpanded(true)} hitSlop={8} style={styles.moreChip}>
+          <Pressable
+            onPress={() => setExpanded(true)}
+            hitSlop={8}
+            style={styles.moreChip}
+            accessibilityRole="button"
+            accessibilityLabel={`Mostrar mais ${hiddenCount} ${hiddenCount === 1 ? "característica" : "características"}`}
+          >
             <Text style={styles.moreChipText}>+{hiddenCount}</Text>
           </Pressable>
         )}

@@ -22,8 +22,18 @@ interface Feedback {
   message: string;
 }
 
+// Quanto esperar a primeira resposta do servidor antes de desistir e
+// mostrar o erro com "Tentar de novo" (em vez de um skeleton eterno).
+const LOAD_TIMEOUT_MS = 12000;
+
 interface VenuesContextValue {
   venues: Venue[];
+  // Só com Firebase: true até a primeira resposta do servidor; loadError
+  // quando ela não vem (sem rede, erro de leitura). No modo mock, sempre
+  // false — a lista já está pronta.
+  isLoading: boolean;
+  loadError: boolean;
+  retryLoad: () => void;
   addHypeReport: (id: string, score: number) => void;
   addReview: (id: string, review: Omit<Review, "id" | "createdAt" | "authorName" | "authorId">) => void;
   setVenueLogo: (id: string, logoUrl: string) => void;
@@ -43,48 +53,75 @@ const VenuesContext = createContext<VenuesContextValue | undefined>(undefined);
 //
 // Duas mutações bem separadas, espelhando os dois tipos de avaliação:
 // addHypeReport (rápida, só o status de agora) e addReview (fixa, nota
-// por critério + características + comentário). Por enquanto as duas
-// (e setVenueLogo) só alteram o estado local, mesmo com Firestore
-// configurado — sincronizar escrita é o próximo passo, depois deste
-// aqui (leitura) validado.
+// por critério + características + comentário). Com Firestore, as duas
+// gravam de verdade num batch atômico (post + limite de frequência +
+// contador de pontos); sem Firestore, só alteram o estado local.
+// setVenueLogo segue local ao aparelho (URI da galeria).
 export function VenuesProvider({ children }: { children: ReactNode }) {
   const { user, displayName } = useAuth();
-  // Começa com o mock mesmo quando o Firestore está configurado — evita
-  // a tela ficar vazia (e disparar o estado "ainda não estamos por
-  // aqui") no instante entre montar e o primeiro snapshot chegar. Assim
-  // que o Firestore responder, o efeito abaixo substitui pelos dados
-  // reais.
-  const [venues, setVenues] = useState<Venue[]>(mockVenues);
+  // Com Firebase, começa VAZIO e "carregando": mostrar o mock até o
+  // Firestore responder faria a lista exibir números falsos e depois
+  // "pular" pros reais. Sem Firebase (.env vazio) o mock já é o dado
+  // final e o app roda 100% sobre ele, como sempre.
+  const [venues, setVenues] = useState<Venue[]>(isFirebaseConfigured ? [] : mockVenues);
+  const [isLoading, setLoading] = useState(isFirebaseConfigured);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
-  // Leitura em tempo real: enquanto o Firebase não estiver configurado
-  // (.env vazio), o app inteiro continua 100% sobre o mock, igual a
-  // antes — nenhum outro comportamento muda. Passo 1 é só leitura: cada
-  // bar é um documento solto em "venues/{id}", sem subcoleções; escrita
-  // (addHypeReport/addReview/setVenueLogo) continua só local por
-  // enquanto (ver comentários abaixo).
+  // Leitura em tempo real: cada bar é um documento solto em
+  // "venues/{id}", sem subcoleções.
   useEffect(() => {
     if (!isFirebaseConfigured || !db) return;
 
-    const unsubscribe = onSnapshot(collection(db, "venues"), (snapshot) => {
-      setVenues(
-        snapshot.docs.map((doc) => {
-          const venue = { ...(doc.data() as Venue), id: doc.id };
-          // arrayUnion (ver addHypeReport/addReview abaixo) sempre
-          // acrescenta no FIM do array — reordena por data aqui pra
-          // manter "mais recente primeiro", que é o que a UI espera
-          // (ver VenueDetailSheet.tsx, lista de comentários).
-          return {
-            ...venue,
-            hypeReports: [...venue.hypeReports].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
-            reviews: [...venue.reviews].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
-          };
-        })
-      );
-    });
+    setLoading(true);
+    setLoadError(false);
 
-    return unsubscribe;
-  }, []);
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      setLoadError(true);
+    }, LOAD_TIMEOUT_MS);
+
+    const unsubscribe = onSnapshot(
+      collection(db, "venues"),
+      (snapshot) => {
+        // Sem rede, o Firestore entrega antes um snapshot vazio "do cache"
+        // — ignorar, senão a lista mostraria "Ainda não estamos por aqui".
+        if (snapshot.metadata.fromCache && snapshot.empty) return;
+
+        clearTimeout(timeout);
+        setVenues(
+          snapshot.docs.map((doc) => {
+            const venue = { ...(doc.data() as Venue), id: doc.id };
+            // arrayUnion (ver addHypeReport/addReview abaixo) sempre
+            // acrescenta no FIM do array — reordena por data aqui pra
+            // manter "mais recente primeiro", que é o que a UI espera
+            // (ver VenueDetailSheet.tsx, lista de comentários).
+            return {
+              ...venue,
+              hypeReports: [...venue.hypeReports].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
+              reviews: [...venue.reviews].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
+            };
+          })
+        );
+        setLoading(false);
+        setLoadError(false);
+      },
+      (error) => {
+        console.error("Bares: leitura falhou:", error);
+        clearTimeout(timeout);
+        setLoading(false);
+        setLoadError(true);
+      }
+    );
+
+    return () => {
+      clearTimeout(timeout);
+      unsubscribe();
+    };
+  }, [reloadKey]);
+
+  const retryLoad = () => setReloadKey((key) => key + 1);
 
   const addHypeReport = (id: string, score: number) => {
     const newReport: HypeReport = {
@@ -244,8 +281,18 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
   // "user = null" do render anterior (e o envio seria ignorado em
   // silêncio) até algum bar mudar no Firestore.
   const value = useMemo(
-    () => ({ venues, addHypeReport, addReview, setVenueLogo, reloadMockData, seedFirestoreFromMock }),
-    [venues, user, displayName]
+    () => ({
+      venues,
+      isLoading,
+      loadError,
+      retryLoad,
+      addHypeReport,
+      addReview,
+      setVenueLogo,
+      reloadMockData,
+      seedFirestoreFromMock,
+    }),
+    [venues, isLoading, loadError, user, displayName]
   );
 
   return (

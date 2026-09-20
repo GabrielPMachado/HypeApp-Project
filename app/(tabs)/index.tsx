@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppHeader, subtitleStyles } from "@/components/AppHeader";
 import { LocationPickerModal } from "@/components/LocationPickerModal";
+import { SkeletonCard } from "@/components/SkeletonCard";
 import { VenueCard } from "@/components/VenueCard";
 import { VenueDetailSheet } from "@/components/VenueDetailSheet";
 import { useLocation } from "@/context/LocationContext";
@@ -15,7 +16,7 @@ import { venuesWithin } from "@/utils/geo";
 import { rankingScore } from "@/utils/hype";
 
 export default function ListaScreen() {
-  const { venues } = useVenues();
+  const { venues, isLoading, loadError, retryLoad } = useVenues();
   const { location, locations, setLocationId } = useLocation();
   const [isPickerOpen, setPickerOpen] = useState(false);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
@@ -52,6 +53,8 @@ export default function ListaScreen() {
         location={location}
         onOpenLocationPicker={() => setPickerOpen(true)}
         subtitle={
+          !isLoading &&
+          !loadError &&
           ranked.length > 0 && (
             <Text style={subtitleStyles.text}>
               Ranking de agora · {ranked.length} {ranked.length === 1 ? "local" : "locais"}
@@ -60,7 +63,31 @@ export default function ListaScreen() {
         }
       />
 
-      {ranked.length === 0 ? (
+      {isLoading ? (
+        <View style={styles.list}>
+          <SkeletonCard />
+          <View style={styles.separator} />
+          <SkeletonCard />
+          <View style={styles.separator} />
+          <SkeletonCard />
+        </View>
+      ) : loadError && ranked.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Feather name="wifi-off" size={28} color={colors.textFaint} />
+          <Text style={styles.emptyTitle}>Não deu pra carregar os bares</Text>
+          <Text style={styles.emptySubtitle}>
+            Confere sua conexão com a internet e tenta de novo.
+          </Text>
+          <Pressable
+            onPress={retryLoad}
+            accessibilityRole="button"
+            accessibilityLabel="Tentar carregar os bares de novo"
+            style={styles.emptyButton}
+          >
+            <Text style={styles.emptyButtonText}>Tentar de novo</Text>
+          </Pressable>
+        </View>
+      ) : ranked.length === 0 ? (
         <View style={styles.emptyState}>
           <Feather name="map-pin" size={28} color={colors.textFaint} />
           <Text style={styles.emptyTitle}>Ainda não estamos por aqui</Text>

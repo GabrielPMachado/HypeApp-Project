@@ -9,6 +9,7 @@ import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AuthScreen } from "@/components/AuthScreen";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { LocationProvider } from "@/context/LocationContext";
 import { VenuesProvider } from "@/context/VenuesContext";
@@ -71,21 +72,23 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <LocationProvider>
-          <VenuesProvider>
-            {/* Por dentro dos outros providers de propósito: o conteúdo de
-                um BottomSheetModal é renderizado num portal na posição
-                deste provider (não onde o sheet é declarado) — se ele
-                ficasse acima, tudo dentro dos sheets perderia os
-                contextos (useAuth, useVenues...). */}
-            <BottomSheetModalProvider>
-              <StatusBar style="light" />
-              <RootNavigator />
-            </BottomSheetModalProvider>
-          </VenuesProvider>
-        </LocationProvider>
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <LocationProvider>
+            <VenuesProvider>
+              {/* Por dentro dos outros providers de propósito: o conteúdo de
+                  um BottomSheetModal é renderizado num portal na posição
+                  deste provider (não onde o sheet é declarado) — se ele
+                  ficasse acima, tudo dentro dos sheets perderia os
+                  contextos (useAuth, useVenues...). */}
+              <BottomSheetModalProvider>
+                <StatusBar style="light" />
+                <RootNavigator />
+              </BottomSheetModalProvider>
+            </VenuesProvider>
+          </LocationProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }

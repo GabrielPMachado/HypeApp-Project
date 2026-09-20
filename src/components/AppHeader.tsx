@@ -49,6 +49,8 @@ export function AppHeader({ location, onOpenLocationPicker, subtitle }: AppHeade
             <Pressable
               onPress={reloadMockData}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Recarregar dados de exemplo"
               style={({ pressed }) => [styles.devReloadButton, pressed && styles.devReloadButtonPressed]}
             >
               <Feather name="refresh-cw" size={13} color={colors.textFaint} />
@@ -63,6 +65,8 @@ export function AppHeader({ location, onOpenLocationPicker, subtitle }: AppHeade
             <Pressable
               onPress={handleSeed}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Enviar dados de exemplo para o Firestore"
               style={({ pressed }) => [styles.devReloadButton, pressed && styles.devReloadButtonPressed]}
             >
               <Feather name="upload-cloud" size={13} color={colors.textFaint} />
@@ -77,6 +81,8 @@ export function AppHeader({ location, onOpenLocationPicker, subtitle }: AppHeade
 
       <Pressable
         onPress={onOpenLocationPicker}
+        accessibilityRole="button"
+        accessibilityLabel={`Região: ${locationLabel(location)}. Toque para trocar`}
         style={({ pressed }) => [styles.locationButton, pressed && styles.locationButtonPressed]}
       >
         <Feather name="map-pin" size={13} color={colors.accent} />

@@ -6,6 +6,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { HypeLevel } from "@/types/venue";
+import { haptics } from "@/utils/haptics";
 import { scoreToLevel } from "@/utils/hype";
 
 const LEVEL_LABELS: Record<HypeLevel, string> = {
@@ -57,6 +58,7 @@ export function HypeReportModal({
   };
 
   const handleSubmit = () => {
+    haptics.confirm();
     onSubmit(score);
     onClose();
   };
@@ -64,16 +66,26 @@ export function HypeReportModal({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={handleClose}
+          accessibilityRole="button"
+          accessibilityLabel="Fechar sem enviar"
+        />
 
         <View style={styles.sheet}>
           <View style={styles.handle} />
 
           <View style={styles.headerRow}>
-            <Text style={styles.title} numberOfLines={1}>
+            <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
               Como está {venueName} agora?
             </Text>
-            <Pressable onPress={handleClose} hitSlop={8}>
+            <Pressable
+              onPress={handleClose}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar sem enviar"
+            >
               <Feather name="x" size={20} color={colors.textMuted} />
             </Pressable>
           </View>
@@ -93,6 +105,8 @@ export function HypeReportModal({
             minimumTrackTintColor={tone}
             maximumTrackTintColor={colors.borderStrong}
             thumbTintColor={tone}
+            accessibilityLabel="Nota do hype, de 0 a 10"
+            accessibilityValue={{ min: 0, max: 10, now: score, text: `${score.toFixed(1)}, ${LEVEL_LABELS[level]}` }}
           />
 
           <View style={styles.sliderLabels}>
@@ -102,6 +116,8 @@ export function HypeReportModal({
 
           <Pressable
             onPress={handleSubmit}
+            accessibilityRole="button"
+            accessibilityLabel={`Enviar hype ${score.toFixed(1)}`}
             style={({ pressed }) => [styles.submitButton, pressed && styles.submitButtonPressed]}
           >
             <Text style={styles.submitText}>Enviar</Text>

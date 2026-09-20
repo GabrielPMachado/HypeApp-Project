@@ -7,6 +7,7 @@ import { ALL_VIBE_TAGS, VIBE_TAG_LABELS } from "@/constants/vibeTags";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { Rating, VibeTag } from "@/types/venue";
+import { haptics } from "@/utils/haptics";
 
 const CRITERIA: { key: keyof Rating; label: string }[] = [
   { key: "music", label: "Música" },
@@ -51,6 +52,7 @@ export function EvaluationModal({ visible, venueName, onClose, onSubmit }: Evalu
 
   const handleSubmit = () => {
     if (!canSubmit) return;
+    haptics.confirm();
     onSubmit({ rating, vibeTags, comment: comment.trim() });
     reset();
   };
@@ -58,16 +60,26 @@ export function EvaluationModal({ visible, venueName, onClose, onSubmit }: Evalu
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={handleClose}
+          accessibilityRole="button"
+          accessibilityLabel="Fechar sem enviar"
+        />
 
         <View style={styles.sheet}>
           <View style={styles.handle} />
 
           <View style={styles.headerRow}>
-            <Text style={styles.title} numberOfLines={1}>
+            <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
               Avaliar {venueName}
             </Text>
-            <Pressable onPress={handleClose} hitSlop={8}>
+            <Pressable
+              onPress={handleClose}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar sem enviar"
+            >
               <Feather name="x" size={20} color={colors.textMuted} />
             </Pressable>
           </View>
@@ -96,6 +108,9 @@ export function EvaluationModal({ visible, venueName, onClose, onSubmit }: Evalu
                   <Pressable
                     key={tag}
                     onPress={() => toggleVibeTag(tag)}
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={VIBE_TAG_LABELS[tag]}
+                    accessibilityState={{ checked: isSelected }}
                     style={({ pressed }) => [
                       styles.tagChip,
                       isSelected && styles.tagChipSelected,
@@ -123,6 +138,9 @@ export function EvaluationModal({ visible, venueName, onClose, onSubmit }: Evalu
             <Pressable
               onPress={handleSubmit}
               disabled={!canSubmit}
+              accessibilityRole="button"
+              accessibilityLabel="Enviar avaliação"
+              accessibilityState={{ disabled: !canSubmit }}
               style={({ pressed }) => [
                 styles.submitButton,
                 !canSubmit && styles.submitButtonDisabled,

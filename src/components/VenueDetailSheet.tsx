@@ -183,6 +183,8 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
           onPress={onClose}
           style={styles.closeButton}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Fechar detalhes do local"
         >
           <Feather name="x" size={18} color={colors.text} />
         </Pressable>
@@ -193,7 +195,12 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
         >
           <View style={styles.headerBlock}>
             <View style={styles.identityRow}>
-              <Pressable onPress={pickLogo} style={styles.avatarWrap}>
+              <Pressable
+                onPress={pickLogo}
+                style={styles.avatarWrap}
+                accessibilityRole="button"
+                accessibilityLabel="Trocar a foto do local"
+              >
                 <VenueAvatar
                   name={venue.name}
                   logoUrl={venue.logoUrl}
@@ -263,6 +270,9 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
           <View style={styles.evaluateRow}>
             <Pressable
               onPress={() => setHypeModalOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Hype agora"
+              accessibilityHint="Diz como está o movimento do local neste momento"
               style={({ pressed }) => [styles.hypeButton, pressed && styles.buttonPressed]}
             >
               <Feather name="zap" size={15} color={colors.background} />
@@ -271,6 +281,9 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
 
             <Pressable
               onPress={() => setEvaluationOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Avaliação completa"
+              accessibilityHint="Dá notas de música, preço, atendimento e ambiente"
               style={({ pressed }) => [styles.fixedButton, pressed && styles.buttonPressed]}
             >
               <Feather name="edit-3" size={15} color={colors.text} />
