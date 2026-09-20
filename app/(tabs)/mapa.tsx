@@ -13,8 +13,11 @@ import { useLocation } from "@/context/LocationContext";
 import { useVenues } from "@/context/VenuesContext";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
+import type { CityLocation } from "@/types/location";
 import type { HypeLevel, Venue } from "@/types/venue";
+import { venuesWithin } from "@/utils/geo";
 import { rankingScore, scoreToLevel } from "@/utils/hype";
+import { locationLabel } from "@/utils/location";
 
 // Estilo escuro do Google Maps, feito com os próprios tokens de cor do
 // app (ver src/theme/colors.ts) pra não destoar do resto da UI. Só tem
@@ -128,6 +131,21 @@ function regionForVenues(venuesInRegion: Venue[]): Region | null {
   };
 }
 
+const KM_PER_DEGREE_LAT = 111.32;
+
+// Enquadramento pra uma região sem nenhum bar dentro (ver initialRegion):
+// centralizada no ponto, com o raio inteiro cabendo na tela (um bairro
+// fica bem de perto, uma cidade inteira mais de longe).
+function regionAround(location: CityLocation): Region {
+  const delta = Math.max((location.radiusKm * 2 * 1.2) / KM_PER_DEGREE_LAT, 0.012);
+  return {
+    latitude: location.latitude,
+    longitude: location.longitude,
+    latitudeDelta: delta,
+    longitudeDelta: delta,
+  };
+}
+
 // Mapa de calor de verdade, via react-native-maps — a biblioteca não
 // tem NENHUMA implementação web (nem só a tela: o simples import dela
 // já quebra o bundle do navegador, porque o módulo chama uma função de
@@ -152,20 +170,11 @@ export default function MapaScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  const venuesInRegion = useMemo(
-    () => venues.filter((venue) => venue.locationId === location.id),
-    [venues, location.id]
-  );
-
-  // Bares de TODOS os bairros (não só o selecionado) — todo bairro
-  // cadastrado hoje é de Porto Alegre (ver src/data/locations.ts), então
-  // isso é só "todos os bares da cidade". Renderizados no mapa inteiro
-  // pra que dar zoom out revele os bares dos bairros vizinhos também,
-  // não só o do bairro em foco.
-  const cityVenues = useMemo(
-    () => venues.filter((venue) => locations.some((loc) => loc.id === venue.locationId)),
-    [venues, locations]
-  );
+  // Bares dentro da região selecionada — pela distância, não por "bairro
+  // do bar" (ver src/utils/geo.ts). Servem pro enquadramento inicial e
+  // pro destaque do líder; o mapa em si desenha TODOS os bares (ver
+  // abaixo), então dar zoom out revela os das redondezas também.
+  const venuesInRegion = useMemo(() => venuesWithin(venues, location), [venues, location]);
 
   // Mesmo local "mais hypado agora" da Lista (ver VenueCard) — o
   // destaque especial no mapa (contorno dourado, moldura neon no
@@ -180,28 +189,17 @@ export default function MapaScreen() {
           rankingScore(venue) > rankingScore(best) ? venue : best
         ).id;
 
-  // Recalcula só quando muda de bairro (não a cada tick) — senão a
-  // pessoa não conseguiria dar zoom/pan livremente, porque a região
-  // "resetaria" pro enquadramento padrão a cada segundo.
+  // Recalcula só quando muda de região (não a cada tick nem quando chegam
+  // dados novos) — senão a pessoa não conseguiria dar zoom/pan livremente,
+  // porque o mapa "resetaria" pro enquadramento padrão a cada segundo.
   //
   // Sem bar nenhum na região (ex: busca livre por um lugar tipo
-  // "Ipanema" — ver LocationPickerModal) mas com coordenadas
-  // geocodificadas, ainda mostra o mapa centralizado lá (só sem
-  // círculo/marcador nenhum) — só cai no estado "sem mapa" quando nem
-  // isso a gente tem.
-  const initialRegion = useMemo(() => {
-    return (
-      regionForVenues(venuesInRegion) ??
-      (location.latitude != null && location.longitude != null
-        ? {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02,
-          }
-        : null)
-    );
-  }, [location.id, location.latitude, location.longitude]);
+  // "Ipanema") o mapa ainda abre centralizado lá — só sem círculo nem
+  // marcador por perto, com o aviso "Ainda não temos bares aqui".
+  const initialRegion = useMemo(
+    () => regionForVenues(venuesInRegion) ?? regionAround(location),
+    [location.id]
+  );
 
   const sheetVenue = venues.find((venue) => venue.id === selectedVenueId) ?? null;
 
@@ -217,7 +215,7 @@ export default function MapaScreen() {
       >
         <Feather name="map-pin" size={13} color={colors.accent} />
         <Text style={styles.locationText} numberOfLines={1}>
-          {location.city ? `${location.neighborhood}, ${location.city}` : location.neighborhood}
+          {locationLabel(location)}
         </Text>
         <Feather name="chevron-down" size={14} color={colors.textFaint} />
       </Pressable>
@@ -226,119 +224,96 @@ export default function MapaScreen() {
 
   return (
     <View style={styles.container}>
-      {!initialRegion ? (
-        <View style={styles.container}>
-          {floatingHeader}
-          <View style={styles.emptyState}>
-            <Feather name="map-pin" size={28} color={colors.textFaint} />
-            <Text style={styles.emptyTitle}>Ainda não estamos por aqui</Text>
-            <Text style={styles.emptySubtitle}>
-              {location.neighborhood} entra em breve. Que tal dar uma olhada na Cidade Baixa?
-            </Text>
-            <Pressable onPress={() => setLocationId("cidade-baixa-poa")} style={styles.emptyButton}>
-              <Text style={styles.emptyButtonText}>Ver Cidade Baixa</Text>
-            </Pressable>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.mapWrap}>
-          {/* key força remontar o mapa (e reaplicar initialRegion) ao
-              trocar de bairro — initialRegion só é lido na primeira
-              montagem, então sem isso o mapa não re-enquadraria sozinho. */}
-          <MapView
-            key={location.id}
-            style={StyleSheet.absoluteFill}
-            // camera (não region) porque region não tem "pitch" — sem
-            // inclinar a câmera, o Google Maps só mostra os prédios
-            // achatados (2D), mesmo com showsBuildings ligado. Só inclina
-            // de verdade quando o Map ID (mapa vetorial) está ativo — sem
-            // ele não existe prédio 3D pra revelar, e a inclinação só
-            // deixaria o mapa 2D comum mais difícil de ler.
-            initialCamera={{
-              center: { latitude: initialRegion.latitude, longitude: initialRegion.longitude },
-              zoom: deltaToZoom(initialRegion.longitudeDelta),
-              pitch: GOOGLE_MAPS_MAP_ID ? 55 : 0,
-              heading: 0,
-            }}
-            // googleMapId (mapa vetorial, com prédios 3D de verdade) e
-            // customMapStyle (JSON clássico) são mutuamente exclusivos —
-            // com Map ID configurado, o estilo vem da nuvem; senão, cai
-            // pro JSON embutido.
-            {...(GOOGLE_MAPS_MAP_ID
-              ? { googleMapId: GOOGLE_MAPS_MAP_ID }
-              : { customMapStyle: DARK_MAP_STYLE })}
-            showsBuildings
-          >
-            {cityVenues.map((venue) => {
-              const score = rankingScore(venue);
-              const level = scoreToLevel(score);
-              const tone = LEVEL_COLORS[level];
-              const coordinate = { latitude: venue.latitude, longitude: venue.longitude };
-              const isLeader = venue.id === leaderVenueId;
+      <View style={styles.mapWrap}>
+        {/* key força remontar o mapa (e reaplicar initialRegion) ao
+            trocar de região — initialRegion só é lido na primeira
+            montagem, então sem isso o mapa não re-enquadraria sozinho. */}
+        <MapView
+          key={location.id}
+          style={StyleSheet.absoluteFill}
+          // camera (não region) porque region não tem "pitch" — sem
+          // inclinar a câmera, o Google Maps só mostra os prédios
+          // achatados (2D), mesmo com showsBuildings ligado. Só inclina
+          // de verdade quando o Map ID (mapa vetorial) está ativo — sem
+          // ele não existe prédio 3D pra revelar, e a inclinação só
+          // deixaria o mapa 2D comum mais difícil de ler.
+          initialCamera={{
+            center: { latitude: initialRegion.latitude, longitude: initialRegion.longitude },
+            zoom: deltaToZoom(initialRegion.longitudeDelta),
+            pitch: GOOGLE_MAPS_MAP_ID ? 55 : 0,
+            heading: 0,
+          }}
+          // googleMapId (mapa vetorial, com prédios 3D de verdade) e
+          // customMapStyle (JSON clássico) são mutuamente exclusivos —
+          // com Map ID configurado, o estilo vem da nuvem; senão, cai
+          // pro JSON embutido.
+          {...(GOOGLE_MAPS_MAP_ID
+            ? { googleMapId: GOOGLE_MAPS_MAP_ID }
+            : { customMapStyle: DARK_MAP_STYLE })}
+          showsBuildings
+        >
+          {/* Todos os bares, estejam onde estiverem — a região só decide
+              o enquadramento inicial, não quem aparece no mapa. */}
+          {venues.map((venue) => {
+            const score = rankingScore(venue);
+            const level = scoreToLevel(score);
+            const tone = LEVEL_COLORS[level];
+            const coordinate = { latitude: venue.latitude, longitude: venue.longitude };
+            const isLeader = venue.id === leaderVenueId;
 
-              return (
-                // Fragment, não View: o MapView nativo espera achar Circle/
-                // Marker como filhos DIRETOS dele pra reconhecer como
-                // overlays — uma View de verdade no meio quebraria isso.
-                <Fragment key={venue.id}>
-                  {/* Circle é uma forma nativa do mapa — só aceita cor
-                      sólida (sem gradiente, sem giro). O líder ganha um
-                      contorno dourado mais grosso em vez da cor de hype
-                      padrão, pra se destacar como nos cards da Lista. */}
-                  <Circle
-                    center={coordinate}
-                    radius={heatRadiusMeters(score)}
-                    fillColor={`${tone}59`}
-                    strokeColor={isLeader ? colors.accent : `${tone}99`}
-                    strokeWidth={isLeader ? 3 : 1}
-                  />
-                  {/* Aproximação do prédio do bar (ver squareAround) — o
-                      SDK não dá acesso ao contorno real do prédio, então
-                      isso é só um quadrado colorido no ponto exato. */}
-                  <Polygon
-                    coordinates={squareAround(venue.latitude, venue.longitude, 9)}
-                    fillColor={`${tone}40`}
-                    strokeColor={isLeader ? colors.accent : tone}
-                    strokeWidth={isLeader ? 3 : 2}
-                  />
-                  {/* Sem title/description: isso ativaria o callout nativo do
-                      Google Maps, que rouba o toque antes do onPress abrir a
-                      nossa folha de detalhe (mais completa que o callout).
-                      tracksViewChanges precisa ficar true — com false o
-                      Android tira uma "foto" da view ANTES dela terminar de
-                      desenhar (fonte/iniciais), e o marcador fica em branco. */}
-                  <Marker
-                    coordinate={coordinate}
-                    tracksViewChanges
-                    onPress={() => {
-                      setSelectedVenueId(venue.id);
-                      setSheetOpen(true);
-                    }}
-                  >
-                    {/* Logo/avatar do bar (ver VenueAvatar) no lugar de um
-                        ponto genérico. O líder ganha a mesma paleta neon
-                        do card (ver NeonBorder) como moldura — estática
-                        aqui, já que animar um marcador de mapa exige
-                        re-tirar um "print" da view a cada frame, algo
-                        instável demais pra valer a pena. */}
-                    {isLeader ? (
-                      <LinearGradient
-                        colors={NEON_COLORS}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.markerRingNeon}
-                      >
-                        <View style={styles.markerRingInner}>
-                          <VenueAvatar
-                            name={venue.name}
-                            logoUrl={venue.logoUrl}
-                            vibeTag={venue.vibeTags[0]}
-                            size={26}
-                          />
-                        </View>
-                      </LinearGradient>
-                    ) : (
-                      <View style={[styles.markerRing, { borderColor: tone }]}>
+            return (
+              // Fragment, não View: o MapView nativo espera achar Circle/
+              // Marker como filhos DIRETOS dele pra reconhecer como
+              // overlays — uma View de verdade no meio quebraria isso.
+              <Fragment key={venue.id}>
+                {/* Circle é uma forma nativa do mapa — só aceita cor
+                    sólida (sem gradiente, sem giro). O líder ganha um
+                    contorno dourado mais grosso em vez da cor de hype
+                    padrão, pra se destacar como nos cards da Lista. */}
+                <Circle
+                  center={coordinate}
+                  radius={heatRadiusMeters(score)}
+                  fillColor={`${tone}59`}
+                  strokeColor={isLeader ? colors.accent : `${tone}99`}
+                  strokeWidth={isLeader ? 3 : 1}
+                />
+                {/* Aproximação do prédio do bar (ver squareAround) — o
+                    SDK não dá acesso ao contorno real do prédio, então
+                    isso é só um quadrado colorido no ponto exato. */}
+                <Polygon
+                  coordinates={squareAround(venue.latitude, venue.longitude, 9)}
+                  fillColor={`${tone}40`}
+                  strokeColor={isLeader ? colors.accent : tone}
+                  strokeWidth={isLeader ? 3 : 2}
+                />
+                {/* Sem title/description: isso ativaria o callout nativo do
+                    Google Maps, que rouba o toque antes do onPress abrir a
+                    nossa folha de detalhe (mais completa que o callout).
+                    tracksViewChanges precisa ficar true — com false o
+                    Android tira uma "foto" da view ANTES dela terminar de
+                    desenhar (fonte/iniciais), e o marcador fica em branco. */}
+                <Marker
+                  coordinate={coordinate}
+                  tracksViewChanges
+                  onPress={() => {
+                    setSelectedVenueId(venue.id);
+                    setSheetOpen(true);
+                  }}
+                >
+                  {/* Logo/avatar do bar (ver VenueAvatar) no lugar de um
+                      ponto genérico. O líder ganha a mesma paleta neon
+                      do card (ver NeonBorder) como moldura — estática
+                      aqui, já que animar um marcador de mapa exige
+                      re-tirar um "print" da view a cada frame, algo
+                      instável demais pra valer a pena. */}
+                  {isLeader ? (
+                    <LinearGradient
+                      colors={NEON_COLORS}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.markerRingNeon}
+                    >
+                      <View style={styles.markerRingInner}>
                         <VenueAvatar
                           name={venue.name}
                           logoUrl={venue.logoUrl}
@@ -346,35 +321,43 @@ export default function MapaScreen() {
                           size={26}
                         />
                       </View>
-                    )}
-                  </Marker>
-                </Fragment>
-              );
-            })}
-          </MapView>
+                    </LinearGradient>
+                  ) : (
+                    <View style={[styles.markerRing, { borderColor: tone }]}>
+                      <VenueAvatar
+                        name={venue.name}
+                        logoUrl={venue.logoUrl}
+                        vibeTag={venue.vibeTags[0]}
+                        size={26}
+                      />
+                    </View>
+                  )}
+                </Marker>
+              </Fragment>
+            );
+          })}
+        </MapView>
 
-          {floatingHeader}
+        {floatingHeader}
 
-          {/* Mapa mostrado mesmo sem bar nenhum na região (ver
-              initialRegion) — avisa sem bloquear a visualização do
-              lugar, ao contrário do estado "sem mapa" (ver abaixo). */}
-          {venuesInRegion.length === 0 && (
-            <View style={[styles.noVenuesBanner, { top: insets.top + 64 }]} pointerEvents="none">
-              <Feather name="map-pin" size={13} color={colors.textFaint} />
-              <Text style={styles.noVenuesBannerText}>Ainda não temos bares aqui</Text>
-            </View>
-          )}
-
-          <View style={styles.legend}>
-            {(["low", "medium", "high"] as HypeLevel[]).map((level) => (
-              <View key={level} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: LEVEL_COLORS[level] }]} />
-                <Text style={styles.legendText}>{LEVEL_LABELS[level]}</Text>
-              </View>
-            ))}
+        {/* O mapa sempre aparece, mesmo sem bar nenhum na região (ver
+            initialRegion) — o aviso não bloqueia a visualização do lugar. */}
+        {venuesInRegion.length === 0 && (
+          <View style={[styles.noVenuesBanner, { top: insets.top + 64 }]} pointerEvents="none">
+            <Feather name="map-pin" size={13} color={colors.textFaint} />
+            <Text style={styles.noVenuesBannerText}>Ainda não temos bares aqui</Text>
           </View>
+        )}
+
+        <View style={styles.legend}>
+          {(["low", "medium", "high"] as HypeLevel[]).map((level) => (
+            <View key={level} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: LEVEL_COLORS[level] }]} />
+              <Text style={styles.legendText}>{LEVEL_LABELS[level]}</Text>
+            </View>
+          ))}
         </View>
-      )}
+      </View>
 
       <LocationPickerModal
         visible={isPickerOpen}
@@ -485,36 +468,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fontFamily.body,
     color: colors.text,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    padding: 32,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontFamily: fontFamily.display,
-    color: colors.text,
-    marginTop: 4,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    fontFamily: fontFamily.body,
-    color: colors.textMuted,
-    textAlign: "center",
-  },
-  emptyButton: {
-    marginTop: 10,
-    backgroundColor: colors.accentMuted,
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-  },
-  emptyButtonText: {
-    fontSize: 13,
-    fontFamily: fontFamily.bodySemiBold,
-    color: colors.accent,
   },
 });

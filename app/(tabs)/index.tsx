@@ -11,6 +11,7 @@ import { useLocation } from "@/context/LocationContext";
 import { useVenues } from "@/context/VenuesContext";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
+import { venuesWithin } from "@/utils/geo";
 import { rankingScore } from "@/utils/hype";
 
 export default function ListaScreen() {
@@ -32,12 +33,13 @@ export default function ListaScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  // Ranking: só os locais da região selecionada, mais "hype" primeiro —
-  // reordena a cada novo report, porque a nota usada é a mesma que
-  // aparece no card (rankingScore), não a semente fixa.
-  const ranked = venues
-    .filter((venue) => venue.locationId === location.id)
-    .sort((a, b) => rankingScore(b) - rankingScore(a));
+  // Ranking: só os bares dentro da região selecionada (pela distância,
+  // não por "bairro do bar" — ver src/utils/geo.ts), mais "hype"
+  // primeiro — reordena a cada novo report, porque a nota usada é a
+  // mesma que aparece no card (rankingScore), não a semente fixa.
+  const ranked = venuesWithin(venues, location).sort(
+    (a, b) => rankingScore(b) - rankingScore(a)
+  );
 
   // Busca sempre a versão mais recente do venue (não uma cópia
   // congelada no momento do toque), pra a folha refletir avaliações
@@ -63,7 +65,7 @@ export default function ListaScreen() {
           <Feather name="map-pin" size={28} color={colors.textFaint} />
           <Text style={styles.emptyTitle}>Ainda não estamos por aqui</Text>
           <Text style={styles.emptySubtitle}>
-            {location.neighborhood} entra em breve. Que tal dar uma olhada na Cidade Baixa?
+            {location.name} entra em breve. Que tal dar uma olhada na Cidade Baixa?
           </Text>
           <Pressable
             onPress={() => setLocationId("cidade-baixa-poa")}

@@ -1,12 +1,15 @@
 import { Feather } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useLocation } from "@/context/LocationContext";
 import { useVenues } from "@/context/VenuesContext";
+import { geocodePlace } from "@/services/geocoding";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { CityLocation } from "@/types/location";
+import type { Venue } from "@/types/venue";
+import { venuesWithin } from "@/utils/geo";
 import { rankingScore } from "@/utils/hype";
 
 interface LocationPickerModalProps {
@@ -17,40 +20,20 @@ interface LocationPickerModalProps {
   onClose: () => void;
 }
 
-const TRENDING_COUNT = 3;
+// Cada linha da lista é uma região (bairro cadastrado) ou um bar achado
+// pelo nome/endereço — o bar é um resultado por si só, não precisa de
+// bairro nenhum pra ser encontrado.
+type ResultItem = { kind: "place"; place: CityLocation } | { kind: "venue"; venue: Venue };
 
-const GEOAPIFY_API_KEY = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY;
+const TRENDING_COUNT = 3;
+const MAX_VENUE_RESULTS = 6;
+const VENUE_RADIUS_KM = 0.8; // "bares ao redor" de um bar escolhido
 
 function normalize(value: string) {
   return value
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "") // remove acentos pra busca ficar mais tolerante
     .toLowerCase();
-}
-
-// Geocodifica o texto digitado (mesma chave do mapa estático em
-// VenueLocationMap.tsx) pra achar coordenadas reais de QUALQUER lugar —
-// mesmo um que a gente não tenha bar nenhum cadastrado (ex: "Ipanema").
-// Sem isso a busca livre só selecionaria um nome sem localização real,
-// e o mapa não teria pra onde apontar. Falha em silêncio (sem chave, ou
-// lugar não encontrado): quem chama trata `null` como "sem coordenadas".
-async function geocodePlace(text: string): Promise<{ latitude: number; longitude: number } | null> {
-  if (!GEOAPIFY_API_KEY) return null;
-  try {
-    // filter=countrycode:br: o app é focado no Brasil (lançamento em
-    // Porto Alegre) — sem isso, um nome comum (ex: "Ipanema", que
-    // também é uma cidade pequena em MG) pode resolver pro lugar
-    // errado mundo afora.
-    const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(text)}&filter=countrycode:br&limit=1&apiKey=${GEOAPIFY_API_KEY}`;
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const data = await response.json();
-    const [longitude, latitude] = data?.features?.[0]?.geometry?.coordinates ?? [];
-    if (typeof latitude !== "number" || typeof longitude !== "number") return null;
-    return { latitude, longitude };
-  } catch {
-    return null;
-  }
 }
 
 export function LocationPickerModal({
@@ -62,88 +45,112 @@ export function LocationPickerModal({
 }: LocationPickerModalProps) {
   const [query, setQuery] = useState("");
   const [isGeocoding, setGeocoding] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+  const searchRequest = useRef(0);
   const { venues } = useVenues();
-  const { setCustomLocation } = useLocation();
+  const { location, setCustomLocation } = useLocation();
 
-  // "Em alta agora" = bairros ordenados pela média do hype atual dos
-  // seus bares (mesma nota mostrada nos cards/mapa, ver rankingScore) —
+  // "Em alta agora" = regiões ordenadas pela média do hype atual dos bares
+  // dentro delas (mesma nota mostrada nos cards/mapa, ver rankingScore) —
   // não é uma ordem fixa no código, muda sozinha conforme os reports
-  // chegam. Bairro sem nenhum bar avaliado ainda fica por último (média 0).
-  const trendingOrder = useMemo(() => {
-    const scoreByLocation = new Map<string, number>();
-    for (const location of locations) {
-      const venuesHere = venues.filter((venue) => venue.locationId === location.id);
-      const avg =
-        venuesHere.length === 0
-          ? 0
-          : venuesHere.reduce((sum, venue) => sum + rankingScore(venue), 0) / venuesHere.length;
-      scoreByLocation.set(location.id, avg);
-    }
-    return [...locations].sort(
-      (a, b) => (scoreByLocation.get(b.id) ?? 0) - (scoreByLocation.get(a.id) ?? 0)
+  // chegam. Sem bar nenhum por perto a média é 0 (fica por último). Não
+  // memoizado de propósito: rankingScore depende do relógio, e são poucos
+  // bares e regiões.
+  const scoreByPlace = new Map<string, number>();
+  for (const place of locations) {
+    const nearby = venuesWithin(venues, place);
+    scoreByPlace.set(
+      place.id,
+      nearby.length === 0
+        ? 0
+        : nearby.reduce((sum, venue) => sum + rankingScore(venue), 0) / nearby.length
     );
-  }, [locations, venues]);
-
+  }
+  const trendingOrder = [...locations].sort(
+    (a, b) => (scoreByPlace.get(b.id) ?? 0) - (scoreByPlace.get(a.id) ?? 0)
+  );
   const trending = trendingOrder.slice(0, TRENDING_COUNT);
 
-  // Índice de busca por bairro: além do próprio nome/cidade/estado,
-  // inclui o endereço de cada bar cadastrado ali — assim digitar uma
-  // rua (ex: "Padre Chagas") também encontra o bairro certo, não só
-  // digitar o nome do bairro ou da cidade em si.
+  // Índice de busca por região: além do próprio nome/cidade/estado, inclui
+  // o endereço dos bares que estão dentro dela — assim digitar uma rua
+  // (ex: "Padre Chagas") também encontra a região certa.
   const searchIndex = useMemo(() => {
     const index = new Map<string, string>();
-    for (const location of locations) {
-      const streets = venues
-        .filter((venue) => venue.locationId === location.id)
+    for (const place of locations) {
+      const streets = venuesWithin(venues, place)
         .map((venue) => venue.address)
         .join(" ");
-      index.set(
-        location.id,
-        normalize(`${location.neighborhood} ${location.city} ${location.state} ${streets}`)
-      );
+      index.set(place.id, normalize(`${place.name} ${place.city} ${place.state} ${streets}`));
     }
     return index;
   }, [locations, venues]);
 
-  const filtered = useMemo(() => {
-    const q = normalize(query.trim());
-    if (!q) return trendingOrder;
-    return trendingOrder.filter((loc) => searchIndex.get(loc.id)?.includes(q));
-  }, [trendingOrder, searchIndex, query]);
+  const q = normalize(query.trim());
+  const placeResults = q
+    ? trendingOrder.filter((place) => searchIndex.get(place.id)?.includes(q))
+    : trendingOrder;
+  const venueResults = q
+    ? venues
+        .filter((venue) => normalize(`${venue.name} ${venue.address}`).includes(q))
+        .slice(0, MAX_VENUE_RESULTS)
+    : [];
+  const results: ResultItem[] = [
+    ...placeResults.map((place): ResultItem => ({ kind: "place", place })),
+    ...venueResults.map((venue): ResultItem => ({ kind: "venue", venue })),
+  ];
 
   const handleClose = () => {
+    searchRequest.current += 1; // invalida uma geocodificação ainda em andamento
     setQuery("");
+    setNotFound(false);
+    setGeocoding(false);
     onClose();
   };
 
-  const handleSelect = (id: string) => {
+  const handleSelectPlace = (id: string) => {
     onSelect(id);
     handleClose();
   };
 
-  // Busca de verdade livre: mesmo pra um lugar que não temos cadastrado
-  // (ex: "Ipanema" — nem é Porto Alegre), a pessoa ainda pode selecionar
-  // exatamente o que digitou. Geocodifica pra achar coordenadas reais
-  // (assim o mapa consegue mostrar o bairro mesmo sem bar nenhum ali) e
-  // vira a região atual na hora — sem "id" na lista fixa pra procurar,
-  // o que naturalmente cai no estado "ainda não estamos por aqui" já
-  // existente nas telas, já que não há bar nenhum cadastrado com esse
-  // locationId. Sem coordenadas (geocodificação falhou ou sem chave),
-  // ainda funciona — só o mapa não tem pra onde apontar.
-  const handleSelectFreeText = async () => {
-    const trimmed = query.trim();
-    if (!trimmed || isGeocoding) return;
-    setGeocoding(true);
-    const coords = await geocodePlace(trimmed);
-    setGeocoding(false);
+  // Escolher um bar centraliza a região nele: a lista e o mapa mostram
+  // os bares ao redor (incluindo ele), esteja ou não num bairro cadastrado.
+  const handleSelectVenue = (venue: Venue) => {
     setCustomLocation({
-      id: `custom:${normalize(trimmed)}`,
-      neighborhood: trimmed,
+      id: `venue:${venue.id}`,
+      name: venue.name,
       city: "",
       state: "",
-      available: false,
-      latitude: coords?.latitude,
-      longitude: coords?.longitude,
+      latitude: venue.latitude,
+      longitude: venue.longitude,
+      radiusKm: VENUE_RADIUS_KM,
+    });
+    handleClose();
+  };
+
+  // Busca de verdade livre: qualquer rua, bairro ou cidade do Brasil, mesmo
+  // sem bar nenhum cadastrado ali (ex: "Ipanema"). Geocodifica — com viés
+  // pra perto de onde a pessoa já está olhando — e vira a região atual;
+  // sem bares por perto, a lista e o mapa avisam "ainda não temos bares
+  // aqui". Se nem o geocodificador achar (sem rede, sem chave, nome
+  // inexistente), avisa em vez de selecionar um lugar sem coordenadas.
+  const handleSelectFreeText = async () => {
+    const text = query.trim();
+    if (!text || isGeocoding) return;
+
+    const request = ++searchRequest.current;
+    setNotFound(false);
+    setGeocoding(true);
+    const place = await geocodePlace(text, location);
+    if (request !== searchRequest.current) return; // fechou o modal enquanto buscava
+
+    setGeocoding(false);
+    if (!place) {
+      setNotFound(true);
+      return;
+    }
+    setCustomLocation({
+      ...place,
+      id: `place:${place.latitude.toFixed(4)},${place.longitude.toFixed(4)}`,
     });
     handleClose();
   };
@@ -167,81 +174,117 @@ export function LocationPickerModal({
             <Feather name="search" size={15} color={colors.textFaint} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Busque por rua, bairro ou cidade"
+              placeholder="Busque por bar, rua, bairro ou cidade"
               placeholderTextColor={colors.textFaint}
               value={query}
-              onChangeText={setQuery}
+              onChangeText={(text) => {
+                setQuery(text);
+                setNotFound(false);
+              }}
               autoFocus
             />
           </View>
 
-          {/* Atalhos fixos pros bairros mais hypados agora — somem assim
+          {/* Atalhos fixos pras regiões mais hypadas agora — somem assim
               que a pessoa começa a digitar, pra não competir com o
               resultado da busca livre. */}
           {query.length === 0 && (
             <View style={styles.trendingRow}>
-              {trending.map((loc) => (
+              {trending.map((place) => (
                 <Pressable
-                  key={loc.id}
-                  onPress={() => handleSelect(loc.id)}
+                  key={place.id}
+                  onPress={() => handleSelectPlace(place.id)}
                   style={({ pressed }) => [
                     styles.trendingChip,
-                    loc.id === selectedId && styles.trendingChipActive,
+                    place.id === selectedId && styles.trendingChipActive,
                     pressed && styles.rowPressed,
                   ]}
                 >
                   <Feather name="trending-up" size={11} color={colors.accent} />
-                  <Text style={styles.trendingChipText}>{loc.neighborhood}</Text>
+                  <Text style={styles.trendingChipText}>{place.name}</Text>
                 </Pressable>
               ))}
             </View>
           )}
 
           <FlatList
-            data={filtered}
-            keyExtractor={(item) => item.id}
+            data={results}
+            keyExtractor={(item) =>
+              item.kind === "place" ? `place:${item.place.id}` : `venue:${item.venue.id}`
+            }
             keyboardShouldPersistTaps="handled"
             style={styles.list}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             ListEmptyComponent={
-              <View>
-                <Text style={styles.emptyText}>
-                  Ainda não temos nenhum bairro cadastrado pra "{query}".
-                </Text>
-                <Pressable
-                  onPress={handleSelectFreeText}
-                  disabled={isGeocoding}
-                  style={({ pressed }) => [
-                    styles.freeTextRow,
-                    (pressed || isGeocoding) && styles.rowPressed,
-                  ]}
-                >
-                  <Feather name="search" size={15} color={colors.accent} />
-                  <Text style={styles.freeTextRowText}>
-                    {isGeocoding ? "Buscando..." : `Buscar "${query}" mesmo assim`}
-                  </Text>
-                </Pressable>
-              </View>
+              <Text style={styles.emptyText}>
+                Não temos nenhum bar ou bairro cadastrado pra "{query}".
+              </Text>
+            }
+            // A busca livre fica sempre disponível abaixo dos resultados,
+            // não só quando não há nenhum: "Porto Alegre" já casa com os
+            // bairros cadastrados (a cidade está no índice), mas a pessoa
+            // pode querer a cidade inteira — ou uma rua sem bar nenhum.
+            ListFooterComponent={
+              query.trim().length > 0 ? (
+                <View>
+                  <Pressable
+                    onPress={handleSelectFreeText}
+                    disabled={isGeocoding}
+                    style={({ pressed }) => [
+                      styles.freeTextRow,
+                      (pressed || isGeocoding) && styles.rowPressed,
+                    ]}
+                  >
+                    <Feather name="search" size={15} color={colors.accent} />
+                    <Text style={styles.freeTextRowText}>
+                      {isGeocoding
+                        ? "Buscando..."
+                        : results.length > 0
+                          ? `Buscar "${query.trim()}" no mapa`
+                          : `Buscar "${query.trim()}" mesmo assim`}
+                    </Text>
+                  </Pressable>
+                  {notFound && (
+                    <Text style={styles.notFoundText}>
+                      Não encontramos esse lugar. Confira o nome ou inclua a cidade.
+                    </Text>
+                  )}
+                </View>
+              ) : null
             }
             renderItem={({ item }) => {
-              const isSelected = item.id === selectedId;
+              if (item.kind === "venue") {
+                return (
+                  <Pressable
+                    onPress={() => handleSelectVenue(item.venue)}
+                    style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                  >
+                    <View style={styles.rowText}>
+                      <Text style={styles.rowName}>{item.venue.name}</Text>
+                      <Text style={styles.rowSubtitle} numberOfLines={1}>
+                        {item.venue.address}
+                      </Text>
+                    </View>
+
+                    <View style={styles.kindBadge}>
+                      <Text style={styles.kindBadgeText}>Bar</Text>
+                    </View>
+                  </Pressable>
+                );
+              }
+
+              const isSelected = item.place.id === selectedId;
               return (
                 <Pressable
-                  onPress={() => handleSelect(item.id)}
+                  onPress={() => handleSelectPlace(item.place.id)}
                   style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
                 >
                   <View style={styles.rowText}>
-                    <Text style={styles.neighborhood}>{item.neighborhood}</Text>
-                    <Text style={styles.city}>
-                      {item.city} — {item.state}
+                    <Text style={styles.rowName}>{item.place.name}</Text>
+                    <Text style={styles.rowSubtitle}>
+                      {item.place.city} — {item.place.state}
                     </Text>
                   </View>
-
-                  {!item.available && (
-                    <View style={styles.comingSoonBadge}>
-                      <Text style={styles.comingSoonText}>Em breve</Text>
-                    </View>
-                  )}
 
                   {isSelected && <Feather name="check" size={16} color={colors.accent} />}
                 </Pressable>
@@ -353,23 +396,23 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  neighborhood: {
+  rowName: {
     fontSize: 14,
     fontFamily: fontFamily.bodyMedium,
     color: colors.text,
   },
-  city: {
+  rowSubtitle: {
     fontSize: 12,
     fontFamily: fontFamily.body,
     color: colors.textMuted,
   },
-  comingSoonBadge: {
+  kindBadge: {
     backgroundColor: colors.surfaceRaised,
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  comingSoonText: {
+  kindBadgeText: {
     fontSize: 10,
     fontFamily: fontFamily.bodyMedium,
     color: colors.textFaint,
@@ -396,5 +439,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.bodyMedium,
     color: colors.accent,
+  },
+  notFoundText: {
+    fontSize: 12,
+    fontFamily: fontFamily.body,
+    color: colors.textFaint,
+    textAlign: "center",
+    paddingHorizontal: 12,
   },
 });

@@ -4,6 +4,11 @@ import type { HypeReport, Rating, Review, Venue, VibeTag } from "@/types/venue";
 // de desenvolvimento — mas hypeReports, reviews e coordenadas exatas são
 // sintéticos, não vêm de nenhuma integração com esses estabelecimentos.
 //
+// Bar nenhum aqui tem "bairro": só endereço e coordenadas. Os grupos
+// abaixo são organização do arquivo — o app decide o que mostrar pela
+// distância até a região escolhida (ver src/utils/geo.ts), então um bar
+// novo só precisa de latitude/longitude, sem cadastrar bairro nenhum.
+//
 // Os tempos das avaliações são propositalmente variados pra exercitar
 // getCurrentHypeStatus (src/utils/hype.ts): a janela de 30 min expande
 // pra 1h, 1h30 etc quando não há avaliação recente o suficiente.
@@ -58,7 +63,6 @@ export const mockVenues: Venue[] = [
   {
     id: "cb-1",
     name: "Boteco do Joaquim",
-    locationId: "cidade-baixa-poa",
     address: "Rua João Alfredo, 626 — Cidade Baixa",
     priceRange: "$$",
     openingHours: "Qui a Sáb, 18h30 às 01h",
@@ -94,7 +98,6 @@ export const mockVenues: Venue[] = [
   {
     id: "cb-2",
     name: "Paralela",
-    locationId: "cidade-baixa-poa",
     address: "Rua Lopo Gonçalves, 66 — Cidade Baixa",
     priceRange: "$$$",
     openingHours: "Ter a Sáb, 19h às 00h",
@@ -124,7 +127,6 @@ export const mockVenues: Venue[] = [
   {
     id: "cb-3",
     name: "Matita Perê",
-    locationId: "cidade-baixa-poa",
     address: "Cidade Baixa, Porto Alegre",
     priceRange: "$$",
     openingHours: "Qua a Sáb, 19h às 02h",
@@ -169,7 +171,6 @@ export const mockVenues: Venue[] = [
   {
     id: "cb-4",
     name: "Sgt Peppers",
-    locationId: "cidade-baixa-poa",
     address: "Cidade Baixa, Porto Alegre",
     priceRange: "$$",
     openingHours: "Sex e Sáb, 21h às 03h",
@@ -191,7 +192,6 @@ export const mockVenues: Venue[] = [
   {
     id: "cb-5",
     name: "Capone Drinkeria",
-    locationId: "cidade-baixa-poa",
     address: "Cidade Baixa, Porto Alegre",
     priceRange: "$$$",
     openingHours: "Qui a Sáb, 19h às 01h",
@@ -223,7 +223,6 @@ export const mockVenues: Venue[] = [
   {
     id: "bf-1",
     name: "Bar Ocidente",
-    locationId: "bom-fim-poa",
     address: "Rua João Telles — Bom Fim",
     priceRange: "$$",
     openingHours: "Ter a Dom, 18h às 00h",
@@ -245,7 +244,6 @@ export const mockVenues: Venue[] = [
   {
     id: "bf-2",
     name: "Anexo 456",
-    locationId: "bom-fim-poa",
     address: "Rua Fernandes Vieira, 456 — Bom Fim",
     priceRange: "$$",
     openingHours: "Qua a Sáb, 18h às 01h",
@@ -267,7 +265,6 @@ export const mockVenues: Venue[] = [
   {
     id: "bf-3",
     name: "Bar João Bar e Bilhar",
-    locationId: "bom-fim-poa",
     address: "Av. Osvaldo Aranha, 1026 — Bom Fim",
     priceRange: "$",
     openingHours: "Seg a Dom, 17h às 00h",
@@ -289,7 +286,6 @@ export const mockVenues: Venue[] = [
   {
     id: "bf-4",
     name: "Vermelho 23",
-    locationId: "bom-fim-poa",
     address: "Rua Bento Figueiredo, 23 — Bom Fim",
     priceRange: "$$",
     openingHours: "Qui a Sáb, 19h às 02h",
@@ -311,7 +307,6 @@ export const mockVenues: Venue[] = [
   {
     id: "bf-5",
     name: "Lagom Brewery & Pub",
-    locationId: "bom-fim-poa",
     address: "Bom Fim, Porto Alegre",
     priceRange: "$$",
     openingHours: "Ter a Sáb, 18h às 00h",
@@ -335,7 +330,6 @@ export const mockVenues: Venue[] = [
   {
     id: "mv-1",
     name: "Press",
-    locationId: "moinhos-poa",
     address: "Rua Hilário Ribeiro, 281 — Moinhos de Vento",
     priceRange: "$$$",
     openingHours: "Todos os dias, 12h às 23h",
@@ -357,7 +351,6 @@ export const mockVenues: Venue[] = [
   {
     id: "mv-2",
     name: "Al Coala",
-    locationId: "moinhos-poa",
     address: "Rua Hilário Ribeiro, 287 — Moinhos de Vento",
     priceRange: "$$",
     openingHours: "Ter a Dom, 17h às 00h",
@@ -379,7 +372,6 @@ export const mockVenues: Venue[] = [
   {
     id: "mv-3",
     name: "Blink",
-    locationId: "moinhos-poa",
     address: "Rua Comendador Caminha, 312 — Moinhos de Vento",
     priceRange: "$$$",
     openingHours: "Seg a Qui, 18h às 01h / Sex e Sáb, 18h às 04h",
@@ -401,7 +393,6 @@ export const mockVenues: Venue[] = [
   {
     id: "mv-4",
     name: "Calçada Bar",
-    locationId: "moinhos-poa",
     address: "Rua Padre Chagas, 342 — Moinhos de Vento",
     priceRange: "$$$",
     openingHours: "Qua a Sáb, 18h às 01h",
@@ -423,7 +414,6 @@ export const mockVenues: Venue[] = [
   {
     id: "mv-5",
     name: "Caminito Bar e Café",
-    locationId: "moinhos-poa",
     address: "Rua Padre Chagas, 318 — Moinhos de Vento",
     priceRange: "$$",
     openingHours: "Seg a Sáb, 08h às 00h",

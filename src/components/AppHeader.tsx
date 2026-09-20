@@ -8,6 +8,7 @@ import { isFirebaseConfigured } from "@/services/firebase";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { CityLocation } from "@/types/location";
+import { locationLabel } from "@/utils/location";
 
 interface AppHeaderProps {
   location: CityLocation;
@@ -80,7 +81,7 @@ export function AppHeader({ location, onOpenLocationPicker, subtitle }: AppHeade
       >
         <Feather name="map-pin" size={13} color={colors.accent} />
         <Text style={styles.locationText} numberOfLines={1}>
-          {location.city ? `${location.neighborhood}, ${location.city}` : location.neighborhood}
+          {locationLabel(location)}
         </Text>
         <Feather name="chevron-down" size={14} color={colors.textFaint} />
       </Pressable>
