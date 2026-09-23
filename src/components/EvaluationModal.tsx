@@ -8,6 +8,7 @@ import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { Rating, VibeTag } from "@/types/venue";
 import { haptics } from "@/utils/haptics";
+import { getModerationIssue, moderationMessage } from "@/utils/moderation";
 
 const CRITERIA: { key: keyof Rating; label: string }[] = [
   { key: "music", label: "Música" },
@@ -33,7 +34,9 @@ export function EvaluationModal({ visible, venueName, onClose, onSubmit }: Evalu
   const [vibeTags, setVibeTags] = useState<VibeTag[]>([]);
   const [comment, setComment] = useState("");
 
-  const canSubmit = CRITERIA.every(({ key }) => rating[key] > 0);
+  const ratingsOk = CRITERIA.every(({ key }) => rating[key] > 0);
+  const commentIssue = getModerationIssue(comment);
+  const canSubmit = ratingsOk && !commentIssue;
 
   const reset = () => {
     setRating(EMPTY_RATING);
@@ -152,8 +155,11 @@ export function EvaluationModal({ visible, venueName, onClose, onSubmit }: Evalu
               </Text>
             </Pressable>
 
-            {!canSubmit && (
+            {!ratingsOk && (
               <Text style={styles.hint}>Dê uma nota para todos os critérios pra enviar.</Text>
+            )}
+            {ratingsOk && commentIssue && (
+              <Text style={styles.hint}>{moderationMessage(commentIssue, "do comentário")}</Text>
             )}
           </ScrollView>
         </View>

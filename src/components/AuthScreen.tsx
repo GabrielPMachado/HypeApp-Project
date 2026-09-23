@@ -21,6 +21,7 @@ import { isGoogleSignInConfigured, useAuth } from "@/context/AuthContext";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import { haptics } from "@/utils/haptics";
+import { getModerationIssue, moderationMessage } from "@/utils/moderation";
 
 type Mode = "login" | "signup";
 
@@ -111,6 +112,12 @@ export function AuthScreen() {
     if (isSignup && (name.trim().length < 2 || name.trim().length > 30)) {
       haptics.warning();
       setError("Digita seu nome (entre 2 e 30 letras).");
+      return;
+    }
+    const nameIssue = isSignup ? getModerationIssue(name) : null;
+    if (nameIssue) {
+      haptics.warning();
+      setError(moderationMessage(nameIssue, "do nome"));
       return;
     }
     setSubmitting(true);

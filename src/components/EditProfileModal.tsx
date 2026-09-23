@@ -30,6 +30,7 @@ import { fontFamily } from "@/theme/typography";
 import type { VibeTag } from "@/types/venue";
 import { calcPoints, getLevelInfo } from "@/utils/gamification";
 import { haptics } from "@/utils/haptics";
+import { getModerationIssue, moderationMessage } from "@/utils/moderation";
 
 const NAME_MIN = 2;
 const NAME_MAX = 30;
@@ -72,6 +73,8 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
 
   const trimmedName = name.trim();
   const nameValid = trimmedName.length >= NAME_MIN && trimmedName.length <= NAME_MAX;
+  const nameIssue = getModerationIssue(name);
+  const bioIssue = getModerationIssue(bio);
 
   const patch: ProfilePatch = {};
   if (trimmedName !== (profile?.displayName ?? "")) patch.displayName = trimmedName;
@@ -81,7 +84,7 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
   if (frameId !== (profile?.frameId ?? DEFAULT_FRAME_ID)) patch.frameId = frameId;
   if (titleId !== (profile?.titleId ?? null)) patch.titleId = titleId;
   const hasChanges = Object.keys(patch).length > 0;
-  const canSave = hasChanges && nameValid && !isSaving;
+  const canSave = hasChanges && nameValid && !nameIssue && !bioIssue && !isSaving;
 
   // Título mostrado na prévia: o escolhido ou, sem escolha, o do nível.
   const levelTitle = getLevelInfo(
@@ -238,6 +241,9 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
               {!nameValid && name.length > 0 && (
                 <Text style={styles.hintError}>O nome precisa ter entre {NAME_MIN} e {NAME_MAX} letras.</Text>
               )}
+              {nameValid && nameIssue && (
+                <Text style={styles.hintError}>{moderationMessage(nameIssue, "do nome")}</Text>
+              )}
             </View>
 
             <View style={styles.field}>
@@ -256,6 +262,7 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
                 placeholderTextColor={colors.textFaint}
                 multiline
               />
+              {bioIssue && <Text style={styles.hintError}>{moderationMessage(bioIssue, "da bio")}</Text>}
             </View>
 
             <View style={styles.field}>
