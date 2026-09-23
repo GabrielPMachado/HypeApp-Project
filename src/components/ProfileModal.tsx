@@ -3,7 +3,9 @@ import { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { EditProfileModal } from "@/components/EditProfileModal";
+import { FeedbackModal } from "@/components/FeedbackModal";
 import {
   ActivityList,
   BadgeGrid,
@@ -73,10 +75,13 @@ interface ProfileModalProps {
 // aqui — ver o gate em app/_layout.tsx): identidade, nível, conquistas,
 // atividade e edição. O perfil de OUTRA pessoa é o PublicProfileModal.
 export function ProfileModal({ visible, onClose }: ProfileModalProps) {
-  const { user, profile, displayName, coins, signOut } = useAuth();
+  const { user, profile, displayName, coins, signOut, deleteAccount } = useAuth();
   const { venues } = useVenues();
   const [isEditing, setEditing] = useState(false);
   const [isStoreOpen, setStoreOpen] = useState(false);
+  const [isConfirmingDelete, setConfirmingDelete] = useState(false);
+  const [isDeleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const stats = {
     hypeReportCount: profile?.hypeReportCount ?? 0,
@@ -99,6 +104,28 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
   const handleSignOut = () => {
     onClose();
     signOut();
+  };
+
+  // deleteAccount apaga a conta de autenticação primeiro (ver
+  // AuthContext) — se o Firebase recusar por login antigo, pede pra
+  // entrar de novo em vez de um erro técnico sem saída.
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      // Sucesso: o listener de auth detecta a conta sumindo e o app
+      // inteiro volta pra tela de login sozinho — nada a fechar aqui.
+    } catch (error) {
+      setConfirmingDelete(false);
+      const code = (error as { code?: string }).code;
+      setDeleteError(
+        code === "auth/requires-recent-login"
+          ? "Por segurança, saia e entre na conta de novo antes de excluir — daí repita esse passo."
+          : "Não deu pra excluir a conta agora. Tenta de novo em instantes."
+      );
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -175,6 +202,15 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
             <Feather name="log-out" size={15} color={colors.hypeHigh} />
             <Text style={styles.signOutText}>Sair da conta</Text>
           </Pressable>
+
+          <Pressable
+            onPress={() => setConfirmingDelete(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Excluir conta"
+            style={({ pressed }) => [styles.deleteButton, pressed && styles.deleteButtonPressed]}
+          >
+            <Text style={styles.deleteText}>Excluir conta</Text>
+          </Pressable>
         </ScrollView>
 
         <EditProfileModal
@@ -186,6 +222,26 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
           }}
         />
         <StoreModal visible={isStoreOpen} onClose={() => setStoreOpen(false)} />
+
+        <ConfirmModal
+          visible={isConfirmingDelete}
+          icon="trash-2"
+          title="Excluir sua conta?"
+          message="Isso apaga seu perfil, nível, moedas e itens da loja pra sempre. Não tem como desfazer."
+          confirmLabel="Excluir"
+          destructive
+          isBusy={isDeleting}
+          onConfirm={handleDeleteAccount}
+          onCancel={() => setConfirmingDelete(false)}
+        />
+
+        <FeedbackModal
+          visible={deleteError !== ""}
+          icon="alert-circle"
+          title="Não deu pra excluir"
+          message={deleteError}
+          onClose={() => setDeleteError("")}
+        />
       </SafeAreaView>
     </Modal>
   );
@@ -252,5 +308,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.bodySemiBold,
     color: colors.hypeHigh,
+  },
+  deleteButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+  },
+  deleteButtonPressed: {
+    opacity: 0.6,
+  },
+  deleteText: {
+    fontSize: 12,
+    fontFamily: fontFamily.body,
+    color: colors.textFaint,
+    textDecorationLine: "underline",
   },
 });

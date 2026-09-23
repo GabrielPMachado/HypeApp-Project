@@ -36,7 +36,6 @@ interface VenuesContextValue {
   retryLoad: () => void;
   addHypeReport: (id: string, score: number) => void;
   addReview: (id: string, review: Omit<Review, "id" | "createdAt" | "authorName" | "authorId">) => void;
-  setVenueLogo: (id: string, logoUrl: string) => void;
   reloadMockData: () => void;
   // Só pra dev: popula "venues/{id}" no Firestore com o mockVenues.ts
   // atual (um doc por bar, setDoc — idempotente, rodar de novo só
@@ -56,7 +55,6 @@ const VenuesContext = createContext<VenuesContextValue | undefined>(undefined);
 // por critério + características + comentário). Com Firestore, as duas
 // gravam de verdade num batch atômico (post + limite de frequência +
 // contador de pontos); sem Firestore, só alteram o estado local.
-// setVenueLogo segue local ao aparelho (URI da galeria).
 export function VenuesProvider({ children }: { children: ReactNode }) {
   const { user, displayName } = useAuth();
   // Com Firebase, começa VAZIO e "carregando": mostrar o mock até o
@@ -241,13 +239,6 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  // Logo é local ao dispositivo por enquanto (URI do próprio celular,
-  // vindo da galeria) — sem backend ainda pra guardar/servir a imagem
-  // pra outros usuários.
-  const setVenueLogo = (id: string, logoUrl: string) => {
-    setVenues((prev) => prev.map((venue) => (venue.id === id ? { ...venue, logoUrl } : venue)));
-  };
-
   // Só pra desenvolvimento: o Fast Refresh recarrega o módulo
   // mockVenues.ts sozinho quando o arquivo é salvo, mas o useState acima
   // só lê o valor inicial dele UMA vez (na primeira montagem) — é assim
@@ -288,7 +279,6 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
       retryLoad,
       addHypeReport,
       addReview,
-      setVenueLogo,
       reloadMockData,
       seedFirestoreFromMock,
     }),

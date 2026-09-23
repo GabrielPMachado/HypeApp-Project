@@ -53,14 +53,23 @@ Após a validação na Cidade Baixa, o HypeApp monetizará através de frentes v
 
 ## 🚀 Como Rodar o Projeto
 
-Pré-requisitos: [Node.js](https://nodejs.org/) e o app **Expo Go** instalado no celular ([Android](https://play.google.com/store/apps/details?id=host.exp.exponent) / [iOS](https://apps.apple.com/app/expo-go/id982107779)).
+Pré-requisitos: [Node.js](https://nodejs.org/) e o Android SDK instalado (Android Studio resolve).
+
+> ⚠️ O app **não roda no Expo Go**: `react-native-maps` precisa de código nativo que o Expo Go não consegue linkar dinamicamente. É preciso um **development build** próprio (uma vez só, ou sempre que uma dependência nativa mudar):
+>
+> ```bash
+> npx expo prebuild --platform android
+> npx expo run:android
+> ```
+
+Depois do development build instalado no celular/emulador, o dia a dia é só:
 
 ```bash
 npm install
 npx expo start
 ```
 
-Isso abre o Metro Bundler e mostra uma URL/QR code no terminal. Com o celular na **mesma rede Wi-Fi** do computador, abra o Expo Go e escaneie o QR code (ou digite a URL manualmente, ex: `exp://192.168.x.x:8081`).
+Isso abre o Metro Bundler e mostra uma URL/QR code no terminal. Com o celular na **mesma rede Wi-Fi** do computador, abra o app HypeApp já instalado (ele mesmo lista os servidores de desenvolvimento disponíveis) — não precisa reinstalar a cada mudança de código, só quando uma dependência nativa muda.
 
 Se for integrar com o Firebase, copie `.env.example` para `.env` e preencha com as credenciais do seu projeto Firebase — esse arquivo nunca deve ser commitado.
 

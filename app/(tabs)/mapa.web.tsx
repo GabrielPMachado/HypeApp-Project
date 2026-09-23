@@ -18,9 +18,9 @@ export default function MapaWebScreen() {
       </View>
       <Text style={styles.title}>Mapa de calor</Text>
       <Text style={styles.subtitle}>
-        O mapa interativo só funciona no app nativo (Expo Go) — o navegador
-        não tem essa peça. Abra pelo celular pra ver, ou use a aba Lista por
-        aqui.
+        O mapa interativo só funciona no app instalado no celular — o
+        navegador não tem essa peça. Abra pelo celular pra ver, ou use a
+        aba Lista por aqui.
       </Text>
     </View>
   );

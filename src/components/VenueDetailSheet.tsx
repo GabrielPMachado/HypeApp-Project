@@ -5,9 +5,8 @@ import {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import { Feather } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Pressable, Text, View, StyleSheet } from "react-native";
+import { Pressable, Text, View, StyleSheet } from "react-native";
 
 import { EvaluationModal } from "@/components/EvaluationModal";
 import { HypeBadge } from "@/components/HypeBadge";
@@ -43,7 +42,7 @@ const SNAP_POINTS = ["92%"];
 // especificamente pra resolver isso nas duas plataformas — arraste de
 // qualquer ponto do conteúdo, só fecha quando o scroll já estiver no topo.
 export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetProps) {
-  const { addHypeReport, addReview, setVenueLogo } = useVenues();
+  const { addHypeReport, addReview } = useVenues();
   const [isHypeModalOpen, setHypeModalOpen] = useState(false);
   const [isEvaluationOpen, setEvaluationOpen] = useState(false);
   const sheetRef = useRef<BottomSheetModal>(null);
@@ -139,31 +138,6 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
   const aggregateRating = getAggregateRating(venue.reviews);
   const vibeTags = getAggregateVibeTags(venue);
 
-  // Sem backend ainda, então a logo é a URI local do celular (galeria).
-  // Fica salva só neste aparelho, mas já deixa a estrutura pronta pro
-  // dia que vier de um upload de verdade.
-  const pickLogo = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert(
-        "Permissão necessária",
-        "Preciso de acesso às suas fotos pra definir a logo do local."
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setVenueLogo(venue.id, result.assets[0].uri);
-    }
-  };
-
   return (
     <>
       <BottomSheetModal
@@ -195,22 +169,14 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
         >
           <View style={styles.headerBlock}>
             <View style={styles.identityRow}>
-              <Pressable
-                onPress={pickLogo}
-                style={styles.avatarWrap}
-                accessibilityRole="button"
-                accessibilityLabel="Trocar a foto do local"
-              >
+              <View style={styles.avatarWrap}>
                 <VenueAvatar
                   name={venue.name}
                   logoUrl={venue.logoUrl}
                   vibeTag={venue.vibeTags[0]}
                   size={56}
                 />
-                <View style={styles.avatarEditBadge}>
-                  <Feather name="camera" size={11} color={colors.background} />
-                </View>
-              </Pressable>
+              </View>
               <View style={styles.identityText}>
                 <Text style={styles.name}>{venue.name}</Text>
                 <Text style={styles.address}>{venue.address}</Text>
@@ -405,19 +371,6 @@ const styles = StyleSheet.create({
   },
   avatarWrap: {
     position: "relative",
-  },
-  avatarEditBadge: {
-    position: "absolute",
-    right: -2,
-    bottom: -2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.accent,
-    borderWidth: 2,
-    borderColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
   },
   identityText: {
     flex: 1,

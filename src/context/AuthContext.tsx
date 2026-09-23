@@ -1,5 +1,6 @@
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   GoogleAuthProvider,
   onAuthStateChanged,
   sendPasswordResetEmail,
@@ -11,6 +12,7 @@ import {
 } from "firebase/auth";
 import {
   arrayUnion,
+  deleteDoc,
   deleteField,
   doc,
   getDoc,
@@ -67,6 +69,12 @@ interface AuthContextValue {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  // Exclusão de conta (exigida pra publicar na Play Store: toda conta
+  // criada no app precisa de um jeito de apagá-la de dentro do app). O
+  // Firebase exige login "recente" pra isso — se a sessão for antiga,
+  // lança auth/requires-recent-login e quem chama pede pra entrar de
+  // novo antes de tentar outra vez.
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -221,6 +229,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await sendPasswordResetEmail(auth, email);
   };
 
+  // Apaga a conta de autenticação primeiro: se o Firebase recusar por
+  // login antigo (auth/requires-recent-login), nada foi apagado ainda e
+  // a pessoa pode entrar de novo e tentar outra vez. Só depois de
+  // confirmado apaga o perfil público em users/{uid} — deixar pra
+  // depois evita um perfil "órfão" sem conta caso a segunda escrita
+  // falhe por falta de rede.
+  const deleteAccount = async () => {
+    if (!auth?.currentUser) return;
+    const uidToRemove = auth.currentUser.uid;
+    if (isGoogleSignInConfigured) {
+      const { GoogleSignin } = await import("@react-native-google-signin/google-signin");
+      await GoogleSignin.signOut().catch(() => {});
+    }
+    await deleteUser(auth.currentUser);
+    if (db) await deleteDoc(doc(db, "users", uidToRemove)).catch(() => {});
+  };
+
   const saveProfile = async (patch: ProfilePatch) => {
     if (!db || !uid) return;
     const { titleId, ...rest } = patch;
@@ -259,6 +284,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithGoogle,
       signOut,
       resetPassword,
+      deleteAccount,
     }),
     [user, profile, isAuthLoading]
   );
