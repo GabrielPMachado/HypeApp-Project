@@ -1,7 +1,7 @@
 {
   "name": "hypeapp",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -19,19 +19,16 @@
     "@react-native-community/slider": "5.2.0",
     "@react-native-google-signin/google-signin": "^16.1.5",
     "@react-navigation/native": "^7.1.28",
-    "expo": "^57",
-    "expo-constants": "~57.0.18",
+    "expo": "~57.0.24",
+    "expo-constants": "~57.0.19",
     "expo-dev-client": "^57.0.19",
     "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",
-    "expo-image-picker": "~57.0.17",
     "expo-linear-gradient": "~57.0.2",
     "expo-linking": "~57.0.10",
-    "expo-router": "~57.0.21",
+    "expo-router": "~57.0.22",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
-    "expo-symbols": "~57.0.3",
-    "expo-web-browser": "~57.0.3",
     "firebase": "^12.19.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -44,6 +41,13 @@
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.10.1"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "react-native-maps"
+      ]
+    }
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",

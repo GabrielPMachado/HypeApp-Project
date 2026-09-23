@@ -6,7 +6,7 @@ module.exports = {
   expo: {
     name: "HypeApp",
     slug: "HypeApp",
-    version: "1.0.0",
+    version: "1.1.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "hypeapp",
@@ -17,6 +17,11 @@ module.exports = {
     },
     android: {
       package: "com.hypeapp.app",
+      // Identificador numérico da build — a Play Store exige que cresça a
+      // cada envio (mesmo pra a mesma "version" acima). Sobe manualmente
+      // aqui a cada build de release; o EAS Build também sabe fazer isso
+      // sozinho (ver eas.json → cli.appVersionSource / autoIncrement).
+      versionCode: 1,
       adaptiveIcon: {
         backgroundColor: "#0A0A0D",
         foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -54,7 +59,6 @@ module.exports = {
         },
       ],
       "expo-status-bar",
-      "expo-web-browser",
       "@react-native-google-signin/google-signin",
     ],
     experiments: {
