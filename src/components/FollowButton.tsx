@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
 
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/services/firebase";
@@ -13,8 +13,10 @@ interface FollowButtonProps {
 }
 
 // Estado "eu sigo essa pessoa?" em tempo real (ver followUser/unfollowUser
-// em AuthContext.tsx) — onSnapshot no próprio documento da relação, não
-// um campo isolado, então o botão reflete a escrita assim que ela chega.
+// em AuthContext.tsx) — onSnapshot no próprio documento da relação, que o
+// Firestore atualiza no instante da escrita local (antes do servidor
+// confirmar): o botão troca de estado no toque, sem "girando". Se o
+// servidor recusar, o snapshot volta sozinho pro estado anterior.
 export function FollowButton({ targetUid }: FollowButtonProps) {
   const { user, followUser, unfollowUser } = useAuth();
   const [isFollowing, setFollowing] = useState<boolean | null>(null);
@@ -40,6 +42,8 @@ export function FollowButton({ targetUid }: FollowButtonProps) {
     try {
       if (isFollowing) await unfollowUser(targetUid);
       else await followUser(targetUid);
+    } catch {
+      // Recusado (rede/regras): o snapshot já desfez a mudança na tela.
     } finally {
       setSubmitting(false);
     }
@@ -53,20 +57,14 @@ export function FollowButton({ targetUid }: FollowButtonProps) {
       accessibilityLabel={isFollowing ? "Deixar de seguir" : "Seguir"}
       style={[styles.button, isFollowing ? styles.buttonFollowing : styles.buttonNotFollowing]}
     >
-      {isSubmitting ? (
-        <ActivityIndicator size="small" color={isFollowing ? colors.text : colors.background} />
-      ) : (
-        <>
-          <Feather
-            name={isFollowing ? "check" : "user-plus"}
-            size={14}
-            color={isFollowing ? colors.text : colors.background}
-          />
-          <Text style={[styles.text, isFollowing ? styles.textFollowing : styles.textNotFollowing]}>
-            {isFollowing ? "Seguindo" : "Seguir"}
-          </Text>
-        </>
-      )}
+      <Feather
+        name={isFollowing ? "check" : "user-plus"}
+        size={14}
+        color={isFollowing ? colors.text : colors.background}
+      />
+      <Text style={[styles.text, isFollowing ? styles.textFollowing : styles.textNotFollowing]}>
+        {isFollowing ? "Seguindo" : "Seguir"}
+      </Text>
     </Pressable>
   );
 }

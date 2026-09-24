@@ -42,6 +42,17 @@ export const isGoogleSignInConfigured = googleWebClientId !== "";
 // regra dele é ~5 min; 4 dá folga pro relógio do aparelho).
 const RECENT_LOGIN_WINDOW_MS = 4 * 60 * 1000;
 
+// Aviso imediato de que alguém (actorUid) passou a seguir / deixou de seguir
+// (targetUid), disparado no toque e desfeito (delta contrário) se a escrita
+// falhar — os contadores de seguidores ajustam na hora sem esperar o servidor
+// (ver FollowStats.tsx).
+export interface FollowChange {
+  actorUid: string;
+  targetUid: string;
+  delta: 1 | -1;
+}
+type FollowChangeListener = (change: FollowChange) => void;
+
 // Campos que a própria pessoa edita no perfil (titleId null = voltar pro
 // título do nível). As regras do Firestore validam tamanhos e se o item
 // equipado é gratuito ou está no inventário.
@@ -86,6 +97,7 @@ interface AuthContextValue {
   // Grafo social (ver comentário em followUser, mais abaixo no provider).
   followUser: (targetUid: string) => Promise<void>;
   unfollowUser: (targetUid: string) => Promise<void>;
+  subscribeFollowChanges: (listener: FollowChangeListener) => () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -99,6 +111,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthLoading, setAuthLoading] = useState(isFirebaseConfigured);
   const lastLevelRef = useRef<number | null>(null);
   const emailCleanedRef = useRef(false);
+  const followListenersRef = useRef(new Set<FollowChangeListener>());
+  const subscribeFollowChanges = useRef((listener: FollowChangeListener) => {
+    followListenersRef.current.add(listener);
+    return () => {
+      followListenersRef.current.delete(listener);
+    };
+  }).current;
+  const emitFollowChange = (change: FollowChange) =>
+    followListenersRef.current.forEach((listener) => listener(change));
 
   useEffect(() => {
     if (!isFirebaseConfigured || !auth) return;
@@ -396,7 +417,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const batch = writeBatch(db);
     batch.set(doc(db, "users", uid, "following", targetUid), { createdAt: serverTimestamp() });
     batch.set(doc(db, "users", targetUid, "followers", uid), { createdAt: serverTimestamp() });
-    await batch.commit();
+    emitFollowChange({ actorUid: uid, targetUid, delta: 1 });
+    try {
+      await batch.commit();
+    } catch (error) {
+      emitFollowChange({ actorUid: uid, targetUid, delta: -1 });
+      throw error;
+    }
   };
 
   const unfollowUser = async (targetUid: string) => {
@@ -404,7 +431,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const batch = writeBatch(db);
     batch.delete(doc(db, "users", uid, "following", targetUid));
     batch.delete(doc(db, "users", targetUid, "followers", uid));
-    await batch.commit();
+    emitFollowChange({ actorUid: uid, targetUid, delta: -1 });
+    try {
+      await batch.commit();
+    } catch (error) {
+      emitFollowChange({ actorUid: uid, targetUid, delta: 1 });
+      throw error;
+    }
   };
 
   const value = useMemo(
@@ -424,6 +457,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       deleteAccount,
       followUser,
       unfollowUser,
+      subscribeFollowChanges,
     }),
     [user, profile, isAuthLoading]
   );

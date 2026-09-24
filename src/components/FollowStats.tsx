@@ -2,6 +2,7 @@ import { collection, getCountFromServer } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useAuth } from "@/context/AuthContext";
 import { db } from "@/services/firebase";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
@@ -16,8 +17,20 @@ interface FollowStatsProps {
 // de ler os documentos todos da subcoleção — o número pode crescer bem
 // além do que vale a pena baixar só pra contar.
 export function FollowStats({ uid, onPressFollowing, onPressFollowers }: FollowStatsProps) {
+  const { subscribeFollowChanges } = useAuth();
   const [followingCount, setFollowingCount] = useState<number | null>(null);
   const [followerCount, setFollowerCount] = useState<number | null>(null);
+
+  // Seguir/deixar de seguir ajusta o número na hora (o servidor só confirma
+  // depois): recebe o aviso do AuthContext em vez de recontar no servidor.
+  useEffect(
+    () =>
+      subscribeFollowChanges(({ actorUid, targetUid, delta }) => {
+        if (actorUid === uid) setFollowingCount((n) => (n === null ? n : Math.max(0, n + delta)));
+        if (targetUid === uid) setFollowerCount((n) => (n === null ? n : Math.max(0, n + delta)));
+      }),
+    [uid, subscribeFollowChanges]
+  );
 
   useEffect(() => {
     if (!db) return;
