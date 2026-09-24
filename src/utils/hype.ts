@@ -1,46 +1,71 @@
 import type { HypeLevel, HypeReport, Venue } from "@/types/venue";
 
-const WINDOW_STEP_MIN = 30; // janela avança de 30 em 30 minutos
+// Ajustes do "hype agora" — mexer só aqui.
+export const HYPE_HOLD_MINUTES = 30; // um report vale integralmente por esse tempo
+export const HYPE_DECAY_STEP_MINUTES = 30; // depois disso, perde HYPE_DECAY_POINTS a cada passo desses
+export const HYPE_DECAY_POINTS = 1;
+export const HYPE_RESET_HOUR = 12; // o "dia de hype" vai de 12:00 a 12:00 (hora local do aparelho)
 
 export interface HypeStatus {
-  score: number; // 0-10, média dos reports na janela
+  score: number; // 0-10, já com a perda por envelhecimento
   level: HypeLevel; // versão categórica de "score", só pro selo colorido
-  sampleSize: number;
-  windowMinutes: number; // tamanho da janela que precisou ser usada
+  sampleSize: number; // reports que sustentam a nota (1 quando já está perdendo valor)
+  minutesSinceLastReport: number;
+  pointsLost: number; // 0 enquanto o report mais recente ainda está na retenção
   lastReportAt: string;
 }
 
-// Nota de hype exibida = média das notas (0-10) dadas pelos usuários no
-// deslizador, na janela dos últimos 30 minutos. Se ninguém avaliou nesse
-// intervalo, a janela vai dobrando de 30 em 30 min (1h, 1h30, 2h...) até
-// encontrar pelo menos um report — assim o app nunca mostra "sem dado"
-// enquanto existir qualquer avaliação, só deixa claro de quanto tempo
-// atrás ela é.
+// Início do "dia de hype" corrente: o último 12:00 local. Reports de antes
+// disso não contam mais — a nota de todo bar recomeça do zero (sem status,
+// caindo na nota semente, ver rankingScore) a cada meio-dia.
+export function hypeDayStart(now: Date = new Date()): Date {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), HYPE_RESET_HOUR, 0, 0, 0);
+  if (start.getTime() > now.getTime()) start.setDate(start.getDate() - 1);
+  return start;
+}
+
+// Nota de hype exibida:
+//  - enquanto houver report nos últimos 30 min, é a média deles (o hype é
+//    "mantido" nesse período);
+//  - passados os 30 min sem report novo, parte da nota do último report e
+//    perde 1 ponto a cada 30 min (nunca abaixo de 0). Um report novo
+//    "recarrega" o bar, e reports antigos já enfraquecidos não puxam a
+//    média de um report fresco pra baixo.
+// Só entram reports desde o último 12:00 (ver hypeDayStart).
 export function getCurrentHypeStatus(reports: HypeReport[]): HypeStatus | null {
-  if (reports.length === 0) return null;
-
   const now = Date.now();
-  const ages = reports.map((r) => Math.max(0, now - new Date(r.createdAt).getTime()));
-  const minAgeMinutes = Math.min(...ages) / (60 * 1000);
+  const dayStart = hypeDayStart(new Date(now)).getTime();
+  const valid = reports.filter((r) => new Date(r.createdAt).getTime() >= dayStart);
+  if (valid.length === 0) return null;
 
-  const windowMinutes = Math.max(WINDOW_STEP_MIN, Math.ceil(minAgeMinutes / WINDOW_STEP_MIN) * WINDOW_STEP_MIN);
-  const windowMs = windowMinutes * 60 * 1000;
+  const ageMinutes = (r: HypeReport) =>
+    Math.max(0, now - new Date(r.createdAt).getTime()) / (60 * 1000);
+  const latest = valid.reduce((a, b) => (b.createdAt > a.createdAt ? b : a));
+  const minutesSinceLastReport = Math.floor(ageMinutes(latest));
 
-  const source = reports.filter((r) => now - new Date(r.createdAt).getTime() <= windowMs);
+  const fresh = valid.filter((r) => ageMinutes(r) <= HYPE_HOLD_MINUTES);
+  if (fresh.length > 0) {
+    const score = fresh.reduce((sum, r) => sum + r.score, 0) / fresh.length;
+    return {
+      score,
+      level: scoreToLevel(score),
+      sampleSize: fresh.length,
+      minutesSinceLastReport,
+      pointsLost: 0,
+      lastReportAt: latest.createdAt,
+    };
+  }
 
-  const score = source.reduce((sum, r) => sum + r.score, 0) / source.length;
-
-  const lastReportAt = source.reduce(
-    (latest, r) => (r.createdAt > latest ? r.createdAt : latest),
-    source[0].createdAt
-  );
-
+  const steps =
+    Math.floor((ageMinutes(latest) - HYPE_HOLD_MINUTES) / HYPE_DECAY_STEP_MINUTES) + 1;
+  const score = Math.max(0, latest.score - steps * HYPE_DECAY_POINTS);
   return {
     score,
     level: scoreToLevel(score),
-    sampleSize: source.length,
-    windowMinutes,
-    lastReportAt,
+    sampleSize: 1,
+    minutesSinceLastReport,
+    pointsLost: latest.score - score,
+    lastReportAt: latest.createdAt,
   };
 }
 
@@ -51,7 +76,7 @@ export function scoreToLevel(score: number): HypeLevel {
   return "high";
 }
 
-// Formata a janela usada na legenda da UI (ex: "30 min", "1h", "1h30").
+// Formata minutos na legenda da UI (ex: "30 min", "1h", "1h30").
 export function formatHypeWindow(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);

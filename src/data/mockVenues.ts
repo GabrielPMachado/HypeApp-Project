@@ -10,8 +10,8 @@ import type { HypeReport, Rating, Review, Venue, VibeTag } from "@/types/venue";
 // novo só precisa de latitude/longitude, sem cadastrar bairro nenhum.
 //
 // Os tempos das avaliações são propositalmente variados pra exercitar
-// getCurrentHypeStatus (src/utils/hype.ts): a janela de 30 min expande
-// pra 1h, 1h30 etc quando não há avaliação recente o suficiente.
+// getCurrentHypeStatus (src/utils/hype.ts): o hype é mantido por 30 min,
+// depois perde valor, e reports de antes do último 12:00 já não contam.
 
 let hypeReportSeq = 0;
 function hr(minutesAgo: number, score: number, authorName: string): HypeReport {

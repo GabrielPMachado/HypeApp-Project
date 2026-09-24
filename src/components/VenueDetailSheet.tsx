@@ -24,7 +24,7 @@ import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { Venue } from "@/types/venue";
 import { checkInFailureMessage, verifyCheckIn } from "@/utils/checkin";
-import { formatHypeWindow, getCurrentHypeStatus } from "@/utils/hype";
+import { formatHypeWindow, getCurrentHypeStatus, HYPE_HOLD_MINUTES } from "@/utils/hype";
 import { getAggregateRating, getOverallRating } from "@/utils/rating";
 import { getAggregateVibeTags } from "@/utils/vibeTags";
 
@@ -35,6 +35,11 @@ interface VenueDetailSheetProps {
 }
 
 const SNAP_POINTS = ["92%"];
+
+function formatPointsLost(points: number): string {
+  const text = String(Number(points.toFixed(1))).replace(".", ",");
+  return `${text} ${points === 1 ? "ponto" : "pontos"}`;
+}
 
 // Detalhe do bar como uma "folha" que sobe de baixo e fica por cima da
 // lista (não navega pra outra tela). Usa @gorhom/bottom-sheet (com
@@ -260,9 +265,13 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
 
             {hypeStatus && (
               <Text style={styles.hypeMeta}>
-                Média de {hypeStatus.sampleSize}{" "}
-                {hypeStatus.sampleSize === 1 ? "avaliação" : "avaliações"} — janela de{" "}
-                {formatHypeWindow(hypeStatus.windowMinutes)}
+                {hypeStatus.pointsLost === 0
+                  ? `Média de ${hypeStatus.sampleSize} ${
+                      hypeStatus.sampleSize === 1 ? "avaliação" : "avaliações"
+                    } nos últimos ${formatHypeWindow(HYPE_HOLD_MINUTES)}`
+                  : `Última avaliação há ${formatHypeWindow(
+                      hypeStatus.minutesSinceLastReport
+                    )} — perdeu ${formatPointsLost(hypeStatus.pointsLost)} desde então`}
               </Text>
             )}
           </View>

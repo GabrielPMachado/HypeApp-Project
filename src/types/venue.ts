@@ -16,7 +16,8 @@ export type PriceRange = "$" | "$$" | "$$$";
 // HypeReport = avaliação "de hype": rápida, o usuário dá uma nota de
 // 0 a 10 pro quão cheio/animado o local está agora (deslizador, não
 // categorias fixas). É o que alimenta getCurrentHypeStatus — a média
-// dessas notas na janela recente É o "hype agora" exibido no app.
+// dos últimos 30 min (que depois perde valor e reinicia às 12:00) É o
+// "hype agora" exibido no app.
 //
 // Review = avaliação "fixa": nota por critério (música, preço,
 // atendimento, ambiente), características percebidas e comentário —

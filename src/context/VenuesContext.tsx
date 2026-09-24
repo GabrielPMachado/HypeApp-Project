@@ -157,8 +157,8 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
       if (!user) return;
 
       // Anti-abuso: 1 hype report por bar a cada 30min por usuário —
-      // mesma janela usada pra calcular a nota (ver WINDOW_STEP_MIN em
-      // hype.ts), pra ninguém "empilhar" vários votos dentro da mesma
+      // mesma janela em que o hype é mantido na nota (ver HYPE_HOLD_MINUTES
+      // em hype.ts), pra ninguém "empilhar" vários votos dentro da mesma
       // janela e pesar mais que qualquer outra pessoa. A regra do
       // Firestore (não só o app) que garante isso de verdade, lendo
       // "venues/{id}/rateLimits/{uid}.lastReportAt" — ver firestore

@@ -161,9 +161,10 @@ export const PRIVACY_POLICY: LegalDocument = {
     {
       heading: "Por quanto tempo guardamos",
       paragraphs: [
-        "Enquanto sua conta existir. Reports de hype antigos deixam de contar pra nota atual de " +
-          "um bar depois de algumas horas, mas o histórico continua no banco pra fins de " +
-          "consistência — até você excluir sua conta (ver seção 05). Localização de GPS nunca é " +
+        "Enquanto sua conta existir. Um report de hype vale integralmente por 30 minutos, depois " +
+          "perde valor na nota do bar, e todo dia às 12h a nota recomeça do zero — mas o " +
+          "histórico continua no banco pra fins de consistência, até você excluir sua conta " +
+          "(ver seção 05). Localização de GPS nunca é " +
           "gravada: é usada na hora, comparada, e descartada.",
       ],
     },

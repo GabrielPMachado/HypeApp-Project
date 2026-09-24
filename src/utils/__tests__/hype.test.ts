@@ -1,7 +1,16 @@
-import { formatHypeWindow, getCurrentHypeStatus, hypeTrendByDay, rankingScore, scoreToLevel } from "@/utils/hype";
+import {
+  formatHypeWindow,
+  getCurrentHypeStatus,
+  hypeDayStart,
+  hypeTrendByDay,
+  rankingScore,
+  scoreToLevel,
+} from "@/utils/hype";
 import type { HypeReport } from "@/types/venue";
 
-const NOW = new Date("2026-01-01T22:00:00.000Z");
+// Hora local (não UTC) e à noite: os testes de "minutos atrás" ficam sempre
+// depois do último 12:00, em qualquer fuso da máquina.
+const NOW = new Date(2026, 0, 2, 20, 0, 0, 0);
 
 function report(minutesAgo: number, score: number): HypeReport {
   return {
@@ -25,30 +34,98 @@ describe("getCurrentHypeStatus", () => {
     expect(getCurrentHypeStatus([])).toBeNull();
   });
 
-  it("usa a janela padrão de 30min quando há report recente o suficiente", () => {
+  it("mantém a média dos reports dos últimos 30min, sem perder valor", () => {
     const status = getCurrentHypeStatus([report(10, 8), report(20, 6)]);
     expect(status).not.toBeNull();
-    expect(status!.windowMinutes).toBe(30);
     expect(status!.score).toBe(7);
     expect(status!.sampleSize).toBe(2);
+    expect(status!.pointsLost).toBe(0);
   });
 
-  it("expande a janela de 30 em 30min até achar algum report", () => {
-    // nenhum report nos últimos 30min, mas há um há 45min -> precisa de 1h
-    const status = getCurrentHypeStatus([report(45, 4)]);
-    expect(status!.windowMinutes).toBe(60);
-    expect(status!.score).toBe(4);
+  it("um report de exatamente 30min ainda vale integralmente", () => {
+    const status = getCurrentHypeStatus([report(30, 6)]);
+    expect(status!.score).toBe(6);
+    expect(status!.pointsLost).toBe(0);
   });
 
-  it("ignora reports fora da janela escolhida", () => {
+  it.each([
+    [31, 8, 7],
+    [59, 8, 7],
+    [61, 8, 6],
+    [91, 8, 5],
+  ])("report de %smin com nota %s vira %s (perde 1 ponto a cada 30min)", (minutes, score, expected) => {
+    const status = getCurrentHypeStatus([report(minutes, score)]);
+    expect(status!.score).toBe(expected);
+    expect(status!.pointsLost).toBe(score - expected);
+    expect(status!.minutesSinceLastReport).toBe(minutes);
+  });
+
+  it("nunca fica abaixo de 0", () => {
+    const status = getCurrentHypeStatus([report(300, 5)]);
+    expect(status!.score).toBe(0);
+    expect(status!.level).toBe("low");
+  });
+
+  it("reports antigos já fora da retenção não puxam a média de um report novo", () => {
     const status = getCurrentHypeStatus([report(10, 10), report(200, 0)]);
     expect(status!.sampleSize).toBe(1);
     expect(status!.score).toBe(10);
   });
 
+  it("parte da nota do report mais recente quando nenhum está na retenção", () => {
+    const status = getCurrentHypeStatus([report(45, 4), report(100, 9)]);
+    expect(status!.score).toBe(3);
+  });
+
   it("classifica o nível a partir da média calculada, não da nota semente", () => {
     const status = getCurrentHypeStatus([report(5, 9)]);
     expect(status!.level).toBe("high");
+  });
+});
+
+describe("reinício diário às 12:00", () => {
+  const at = (hour: number, minute: number, dayOffset = 0) =>
+    new Date(2026, 0, 2 + dayOffset, hour, minute, 0, 0);
+  const reportAt = (date: Date, score: number): HypeReport => ({
+    id: `hr-${date.getTime()}`,
+    authorName: "Teste",
+    score,
+    createdAt: date.toISOString(),
+  });
+
+  it.each([
+    [at(11, 59), at(12, 0, -1)],
+    [at(12, 0), at(12, 0)],
+    [at(12, 1), at(12, 0)],
+    [at(23, 30), at(12, 0)],
+    [at(0, 5), at(12, 0, -1)],
+  ])("hypeDayStart de %s é %s", (now, expected) => {
+    expect(hypeDayStart(now).getTime()).toBe(expected.getTime());
+  });
+
+  it("antes das 12:00 ainda vale o que foi enviado desde o meio-dia de ontem", () => {
+    jest.setSystemTime(at(11, 0));
+    const status = getCurrentHypeStatus([reportAt(at(23, 0, -1), 9)]);
+    expect(status).not.toBeNull();
+    expect(status!.score).toBe(0);
+  });
+
+  it("às 12:00 os reports da noite anterior deixam de contar", () => {
+    jest.setSystemTime(at(12, 0));
+    expect(getCurrentHypeStatus([reportAt(at(23, 0, -1), 9)])).toBeNull();
+    expect(getCurrentHypeStatus([reportAt(at(11, 59), 9)])).toBeNull();
+  });
+
+  it("report enviado depois do meio-dia conta normalmente", () => {
+    jest.setSystemTime(at(12, 30));
+    const status = getCurrentHypeStatus([reportAt(at(12, 10), 7), reportAt(at(23, 0, -1), 9)]);
+    expect(status!.score).toBe(7);
+    expect(status!.sampleSize).toBe(1);
+  });
+
+  it("depois do reinício o ranking volta pra nota semente", () => {
+    jest.setSystemTime(at(12, 5));
+    expect(rankingScore({ hypeScore: 6.5, hypeReports: [reportAt(at(23, 0, -1), 9)] })).toBe(6.5);
   });
 });
 
