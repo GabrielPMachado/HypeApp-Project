@@ -259,14 +259,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // convive com o mesmo nível de confiança que addReview/uploadVenuePhoto
   // já têm hoje.
   //
-  // ATENÇÃO: espelhar nas regras do Firestore — pra apagar o lado
-  // espelhado em quem me segue, o delete de users/{uid}/following/{uid
-  // que está sendo excluído} precisa ser liberado também pro PRÓPRIO
-  // alvo (não só o dono da subcoleção como hoje), simetricamente ao que
-  // já vale pra .../followers/{followerUid}:
+  // ATENÇÃO: espelhar nas regras do Firestore — hoje só quem SEGUE pode
+  // escrever nas duas pontas de uma relação (ver comentário em
+  // followUser/unfollowUser, acima). Isso cobre limpar o meu próprio
+  // "following" (uidToRemove segue X), mas não o meu "followers"
+  // (X segue uidToRemove): apagar essas duas pontas exige que o ALVO
+  // também possa escrever, senão fica um "fantasma" pra sempre. Liberar
+  // pros dois lados nas duas subcoleções:
   //   match /users/{uid}/following/{targetUid} {
   //     allow write: if request.auth != null
   //       && (request.auth.uid == uid || request.auth.uid == targetUid);
+  //   }
+  //   match /users/{uid}/followers/{followerUid} {
+  //     allow write: if request.auth != null
+  //       && (request.auth.uid == followerUid || request.auth.uid == uid);
   //   }
   const cleanupUserData = async (uidToRemove: string) => {
     if (!db) return;
