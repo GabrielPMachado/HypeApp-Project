@@ -1,4 +1,4 @@
-import { formatHypeWindow, getCurrentHypeStatus, rankingScore, scoreToLevel } from "@/utils/hype";
+import { formatHypeWindow, getCurrentHypeStatus, hypeTrendByDay, rankingScore, scoreToLevel } from "@/utils/hype";
 import type { HypeReport } from "@/types/venue";
 
 const NOW = new Date("2026-01-01T22:00:00.000Z");
@@ -74,6 +74,26 @@ describe("formatHypeWindow", () => {
     [120, "2h"],
   ])("%s minutos -> %s", (minutes, expected) => {
     expect(formatHypeWindow(minutes)).toBe(expected);
+  });
+});
+
+describe("hypeTrendByDay", () => {
+  it("retorna um balde por dia pedido, vazio (null) sem report nenhum", () => {
+    const buckets = hypeTrendByDay([], 7);
+    expect(buckets).toHaveLength(7);
+    expect(buckets.every((b) => b.average === null)).toBe(true);
+  });
+
+  it("agrupa reports de hoje no último balde (o mais recente)", () => {
+    const buckets = hypeTrendByDay([report(0, 8)], 3);
+    expect(buckets[2].average).toBe(8);
+    expect(buckets[0].average).toBeNull();
+    expect(buckets[1].average).toBeNull();
+  });
+
+  it("tira a média quando há mais de um report no mesmo dia", () => {
+    const buckets = hypeTrendByDay([report(0, 4), report(1, 8)], 1);
+    expect(buckets[0].average).toBe(6);
   });
 });
 

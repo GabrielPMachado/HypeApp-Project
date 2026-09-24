@@ -7,6 +7,7 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 import { EditProfileModal } from "@/components/EditProfileModal";
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { FollowStats } from "@/components/FollowStats";
+import { PartnerPanelModal } from "@/components/PartnerPanelModal";
 import {
   ActivityList,
   BadgeGrid,
@@ -88,6 +89,11 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
   const [isConfirmingDelete, setConfirmingDelete] = useState(false);
   const [isDeleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  // ownerId é setado manualmente no Console por enquanto (ver
+  // types/venue.ts) — assume 1 bar por dono, que é o caso de uso real
+  // até aqui (nenhuma rede cadastrada ainda).
+  const [isPartnerPanelOpen, setPartnerPanelOpen] = useState(false);
+  const ownedVenue = venues.find((venue) => venue.ownerId === user?.uid);
 
   const stats = {
     hypeReportCount: profile?.hypeReportCount ?? 0,
@@ -206,6 +212,19 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
             <Feather name="chevron-right" size={16} color={colors.textFaint} />
           </Pressable>
 
+          {ownedVenue && (
+            <Pressable
+              onPress={() => setPartnerPanelOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir painel do parceiro"
+              style={({ pressed }) => [styles.recapButton, pressed && styles.recapButtonPressed]}
+            >
+              <Feather name="briefcase" size={15} color={colors.accent} />
+              <Text style={styles.recapButtonText}>Painel do parceiro — {ownedVenue.name}</Text>
+              <Feather name="chevron-right" size={16} color={colors.textFaint} />
+            </Pressable>
+          )}
+
           <Section title="CONQUISTAS">
             <BadgeGrid badges={badges} />
           </Section>
@@ -250,6 +269,13 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
         />
         <StoreModal visible={isStoreOpen} onClose={() => setStoreOpen(false)} />
         <RecapModal visible={isRecapOpen} onClose={() => setRecapOpen(false)} />
+        {ownedVenue && (
+          <PartnerPanelModal
+            visible={isPartnerPanelOpen}
+            venue={ownedVenue}
+            onClose={() => setPartnerPanelOpen(false)}
+          />
+        )}
 
         {user && userListRelation && (
           <UserListModal

@@ -46,6 +46,12 @@ interface VenuesContextValue {
   // Só quem enviou pode apagar a própria foto (a UI já esconde o botão
   // pras dos outros, mas a regra do Firestore é quem garante de verdade).
   deleteVenuePhoto: (venueId: string, photo: VenuePhoto) => Promise<void>;
+  // Só o dono do local (venue.ownerId — ver PartnerPanelModal.tsx) edita
+  // isso; a regra do Firestore é quem garante de verdade, não só a UI.
+  updateVenueInfo: (
+    id: string,
+    patch: Pick<Venue, "openingHours" | "priceRange">
+  ) => Promise<void>;
   reloadMockData: () => void;
   // Só pra dev: popula "venues/{id}" no Firestore com o mockVenues.ts
   // atual (um doc por bar, setDoc — idempotente, rodar de novo só
@@ -322,6 +328,21 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  // ATENÇÃO: espelhar nas regras do Firestore —
+  //   allow update: if request.auth != null && request.auth.uid == resource.data.ownerId
+  //     && request.resource.data.diff(resource.data).affectedKeys()
+  //       .hasOnly(['openingHours', 'priceRange', 'updatedAt']);
+  const updateVenueInfo = async (id: string, patch: Pick<Venue, "openingHours" | "priceRange">) => {
+    if (isFirebaseConfigured && db) {
+      await updateDoc(doc(db, "venues", id), { ...patch, updatedAt: new Date().toISOString() });
+      return;
+    }
+
+    setVenues((prev) =>
+      prev.map((venue) => (venue.id === id ? { ...venue, ...patch } : venue))
+    );
+  };
+
   // Só pra desenvolvimento: o Fast Refresh recarrega o módulo
   // mockVenues.ts sozinho quando o arquivo é salvo, mas o useState acima
   // só lê o valor inicial dele UMA vez (na primeira montagem) — é assim
@@ -364,6 +385,7 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
       addReview,
       uploadVenuePhoto,
       deleteVenuePhoto,
+      updateVenueInfo,
       reloadMockData,
       seedFirestoreFromMock,
     }),

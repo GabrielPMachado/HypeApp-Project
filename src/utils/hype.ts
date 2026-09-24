@@ -59,6 +59,40 @@ export function formatHypeWindow(minutes: number): string {
   return rest === 0 ? `${hours}h` : `${hours}h${rest}`;
 }
 
+export interface HypeDayBucket {
+  dateLabel: string; // "dd/mm"
+  average: number | null; // null = nenhum report naquele dia
+}
+
+// Tendência dos últimos N dias pro painel do parceiro (ver
+// PartnerPanelModal.tsx) — média por dia corrido (hora local do
+// aparelho), não por janela de 30min como getCurrentHypeStatus (isso
+// aqui é retrospectivo, não é "agora").
+export function hypeTrendByDay(reports: HypeReport[], days = 7): HypeDayBucket[] {
+  const now = new Date();
+  const buckets: HypeDayBucket[] = [];
+
+  for (let i = days - 1; i >= 0; i--) {
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const nextDay = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
+
+    const dayReports = reports.filter((r) => {
+      const time = new Date(r.createdAt).getTime();
+      return time >= day.getTime() && time < nextDay.getTime();
+    });
+
+    buckets.push({
+      dateLabel: `${day.getDate()}/${day.getMonth() + 1}`,
+      average:
+        dayReports.length === 0
+          ? null
+          : dayReports.reduce((sum, r) => sum + r.score, 0) / dayReports.length,
+    });
+  }
+
+  return buckets;
+}
+
 // Nota usada pra ordenar/colorir por hype em qualquer lugar do app
 // (ranking da lista, círculos do mapa de calor): a média real dos
 // reports quando existir, senão a nota semente — a mesma regra exibida

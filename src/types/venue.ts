@@ -75,5 +75,10 @@ export interface Venue {
   hypeReports: HypeReport[]; // status atual é derivado destes (ver getCurrentHypeStatus)
   reviews: Review[]; // avaliação de qualidade é derivada destes (ver getAggregateRating)
   photos?: VenuePhoto[]; // fotos enviadas pela comunidade; ausente/vazio pros dados antigos
+  // uid do dono do local (ver PartnerPanelModal.tsx) — não existe fluxo
+  // de "reivindicar meu bar" ainda, esse campo é setado manualmente no
+  // Console do Firestore por enquanto (mesmo espírito de reports/ e
+  // locationRequests/, ver comentários em ReportModal.tsx).
+  ownerId?: string;
   updatedAt: string; // ISO timestamp da última atualização colaborativa
 }
