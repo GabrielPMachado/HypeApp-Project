@@ -195,15 +195,18 @@ export interface UserActivity {
   favorite: { venueName: string; count: number } | null;
 }
 
-export function getUserActivity(venues: Venue[], uid: string): UserActivity {
+// "since" filtra pra um período (ver RecapModal.tsx — resumo semanal/
+// mensal): sem ele, é a atividade completa da conta (uso no perfil).
+export function getUserActivity(venues: Venue[], uid: string, since?: Date): UserActivity {
   const items: ActivityItem[] = [];
   const countByVenue = new Map<string, { venueName: string; count: number }>();
+  const isInRange = (createdAt: string) => !since || new Date(createdAt) >= since;
 
   for (const venue of venues) {
     let count = 0;
 
     for (const report of venue.hypeReports) {
-      if (report.authorId !== uid) continue;
+      if (report.authorId !== uid || !isInRange(report.createdAt)) continue;
       count++;
       items.push({
         id: report.id,
@@ -216,7 +219,7 @@ export function getUserActivity(venues: Venue[], uid: string): UserActivity {
     }
 
     for (const review of venue.reviews) {
-      if (review.authorId !== uid) continue;
+      if (review.authorId !== uid || !isInRange(review.createdAt)) continue;
       count++;
       items.push({
         id: review.id,

@@ -135,6 +135,18 @@ describe("getUserActivity", () => {
     expect(activity.visitedVenueCount).toBe(2);
   });
 
+  it("filtra por período quando 'since' é passado (ver RecapModal)", () => {
+    const v1 = venue("v1", "Bar A");
+    v1.hypeReports = [
+      { id: "old", authorName: "Eu", authorId: "me", score: 7, createdAt: "2026-01-01T00:00:00.000Z" },
+      { id: "novo", authorName: "Eu", authorId: "me", score: 7, createdAt: "2026-01-10T00:00:00.000Z" },
+    ];
+
+    const activity = getUserActivity([v1], "me", new Date("2026-01-05T00:00:00.000Z"));
+    expect(activity.items).toHaveLength(1);
+    expect(activity.items[0].id).toBe("novo");
+  });
+
   it("sem nenhuma atividade não tem favorito", () => {
     const activity = getUserActivity([venue("v1", "Bar A")], "me");
     expect(activity.favorite).toBeNull();

@@ -15,6 +15,7 @@ import {
   Section,
   StatsRow,
 } from "@/components/ProfileParts";
+import { RecapModal } from "@/components/RecapModal";
 import { StoreModal } from "@/components/StoreModal";
 import { useAuth } from "@/context/AuthContext";
 import { useVenues } from "@/context/VenuesContext";
@@ -79,6 +80,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
   const { venues } = useVenues();
   const [isEditing, setEditing] = useState(false);
   const [isStoreOpen, setStoreOpen] = useState(false);
+  const [isRecapOpen, setRecapOpen] = useState(false);
   const [isConfirmingDelete, setConfirmingDelete] = useState(false);
   const [isDeleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -179,6 +181,17 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
             venues={activity.visitedVenueCount}
           />
 
+          <Pressable
+            onPress={() => setRecapOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Ver meu resumo da semana"
+            style={({ pressed }) => [styles.recapButton, pressed && styles.recapButtonPressed]}
+          >
+            <Feather name="star" size={15} color={colors.accent} />
+            <Text style={styles.recapButtonText}>Ver meu resumo</Text>
+            <Feather name="chevron-right" size={16} color={colors.textFaint} />
+          </Pressable>
+
           <Section title="CONQUISTAS">
             <BadgeGrid badges={badges} />
           </Section>
@@ -222,6 +235,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
           }}
         />
         <StoreModal visible={isStoreOpen} onClose={() => setStoreOpen(false)} />
+        <RecapModal visible={isRecapOpen} onClose={() => setRecapOpen(false)} />
 
         <ConfirmModal
           visible={isConfirmingDelete}
@@ -274,6 +288,26 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
     gap: 22,
+  },
+  recapButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  recapButtonPressed: {
+    opacity: 0.7,
+  },
+  recapButtonText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: fontFamily.bodySemiBold,
+    color: colors.text,
   },
   earnRow: {
     flexDirection: "row",
