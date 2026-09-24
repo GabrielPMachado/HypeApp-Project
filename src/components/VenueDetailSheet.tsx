@@ -9,7 +9,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { EvaluationModal } from "@/components/EvaluationModal";
-import { FeedbackModal } from "@/components/FeedbackModal";
 import { HypeBadge } from "@/components/HypeBadge";
 import { HypeReportModal } from "@/components/HypeReportModal";
 import { PremiumTeaser } from "@/components/PremiumTeaser";
@@ -50,6 +49,11 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
   const [isEvaluationOpen, setEvaluationOpen] = useState(false);
   const [isCheckingIn, setCheckingIn] = useState(false);
   const [checkInError, setCheckInError] = useState("");
+  // Cada check-in ganha um número; fechar a folha ou trocar de bar
+  // invalida o que estiver em andamento (ver o efeito abaixo), pra o
+  // resultado tardio do GPS não reabrir aviso/modal num bar que já saiu
+  // da tela.
+  const checkInRequestRef = useRef(0);
   const sheetRef = useRef<BottomSheetModal>(null);
   // Chamar dismiss() numa folha que a PRÓPRIA biblioteca já fechou
   // sozinha (gesto de arrastar ou toque no backdrop) é o que deixava
@@ -124,6 +128,12 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
     pendingOpenRef.current = true;
   }, [visible, venue?.id]);
 
+  useEffect(() => {
+    checkInRequestRef.current += 1;
+    setCheckingIn(false);
+    setCheckInError("");
+  }, [visible, venue?.id]);
+
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop
@@ -148,8 +158,12 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
   // avaliação — o rate-limit do Firestore já limita a FREQUÊNCIA, isso
   // aqui garante PRESENÇA, os dois problemas são diferentes.
   const handleRequestEvaluation = async (kind: "hype" | "review") => {
+    checkInRequestRef.current += 1;
+    const requestId = checkInRequestRef.current;
+    setCheckInError("");
     setCheckingIn(true);
     const result = await verifyCheckIn(venue);
+    if (requestId !== checkInRequestRef.current) return;
     setCheckingIn(false);
 
     if (!result.ok) {
@@ -259,34 +273,47 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
             address={venue.address}
           />
 
-          <View style={styles.evaluateRow}>
-            <Pressable
-              onPress={() => handleRequestEvaluation("hype")}
-              disabled={isCheckingIn}
-              accessibilityRole="button"
-              accessibilityLabel="Hype agora"
-              accessibilityHint="Confirma que você está no local e diz como está o movimento agora"
-              style={({ pressed }) => [styles.hypeButton, pressed && styles.buttonPressed]}
-            >
-              {isCheckingIn ? (
-                <ActivityIndicator size="small" color={colors.background} />
-              ) : (
-                <Feather name="zap" size={15} color={colors.background} />
-              )}
-              <Text style={styles.hypeButtonText}>Hype agora</Text>
-            </Pressable>
+          <View style={styles.evaluateBlock}>
+            {checkInError !== "" && (
+              <View
+                style={styles.checkInNotice}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+              >
+                <Feather name="map-pin" size={15} color={colors.accent} />
+                <Text style={styles.checkInNoticeText}>{checkInError}</Text>
+              </View>
+            )}
 
-            <Pressable
-              onPress={() => handleRequestEvaluation("review")}
-              disabled={isCheckingIn}
-              accessibilityRole="button"
-              accessibilityLabel="Avaliação completa"
-              accessibilityHint="Confirma que você está no local e dá notas de música, preço, atendimento e ambiente"
-              style={({ pressed }) => [styles.fixedButton, pressed && styles.buttonPressed]}
-            >
-              <Feather name="edit-3" size={15} color={colors.text} />
-              <Text style={styles.fixedButtonText}>Avaliação completa</Text>
-            </Pressable>
+            <View style={styles.evaluateRow}>
+              <Pressable
+                onPress={() => handleRequestEvaluation("hype")}
+                disabled={isCheckingIn}
+                accessibilityRole="button"
+                accessibilityLabel="Hype agora"
+                accessibilityHint="Confirma que você está no local e diz como está o movimento agora"
+                style={({ pressed }) => [styles.hypeButton, pressed && styles.buttonPressed]}
+              >
+                {isCheckingIn ? (
+                  <ActivityIndicator size="small" color={colors.background} />
+                ) : (
+                  <Feather name="zap" size={15} color={colors.background} />
+                )}
+                <Text style={styles.hypeButtonText}>Hype agora</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => handleRequestEvaluation("review")}
+                disabled={isCheckingIn}
+                accessibilityRole="button"
+                accessibilityLabel="Avaliação completa"
+                accessibilityHint="Confirma que você está no local e dá notas de música, preço, atendimento e ambiente"
+                style={({ pressed }) => [styles.fixedButton, pressed && styles.buttonPressed]}
+              >
+                <Feather name="edit-3" size={15} color={colors.text} />
+                <Text style={styles.fixedButtonText}>Avaliação completa</Text>
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.divider} />
@@ -356,13 +383,6 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
         }}
       />
 
-      <FeedbackModal
-        visible={checkInError !== ""}
-        icon="map-pin"
-        title="Não deu pra confirmar presença"
-        message={checkInError}
-        onClose={() => setCheckInError("")}
-      />
     </>
   );
 }
@@ -491,6 +511,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fontFamily.body,
     color: colors.textFaint,
+  },
+  evaluateBlock: {
+    gap: 10,
+  },
+  checkInNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: colors.accentMuted,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  checkInNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: fontFamily.body,
+    color: colors.text,
+    lineHeight: 18,
   },
   evaluateRow: {
     flexDirection: "row",
