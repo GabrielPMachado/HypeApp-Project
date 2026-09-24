@@ -51,6 +51,16 @@ export interface Review {
   createdAt: string; // ISO timestamp
 }
 
+// Foto do local enviada por algum usuário (Storage guarda o arquivo,
+// isso aqui é só o metadado — ver uploadVenuePhoto em VenuesContext.tsx).
+export interface VenuePhoto {
+  id: string;
+  url: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string; // ISO timestamp
+}
+
 export interface Venue {
   id: string;
   name: string;
@@ -64,5 +74,6 @@ export interface Venue {
   logoUrl?: string; // quando ainda não há logo real, a UI cai pra um avatar com iniciais
   hypeReports: HypeReport[]; // status atual é derivado destes (ver getCurrentHypeStatus)
   reviews: Review[]; // avaliação de qualidade é derivada destes (ver getAggregateRating)
+  photos?: VenuePhoto[]; // fotos enviadas pela comunidade; ausente/vazio pros dados antigos
   updatedAt: string; // ISO timestamp da última atualização colaborativa
 }

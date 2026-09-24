@@ -8,6 +8,7 @@ import { initializeAuth } from "firebase/auth";
 // @ts-expect-error -- ver comentário acima
 import { getReactNativePersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // Configuração do Firebase (Firestore + Auth), conforme a stack
 // sugerida no README. As credenciais reais vêm do .env (nunca
@@ -32,6 +33,11 @@ export const isFirebaseConfigured = firebaseConfig.apiKey !== "";
 const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 
 export const db = app ? getFirestore(app) : null;
+
+// Fotos de bar enviadas pela comunidade (ver VenueDetailSheet.tsx) —
+// primeiro uso de Storage no projeto; até aqui tudo (avatar, moldura)
+// era vetorial/derivado, sem upload de arquivo nenhum.
+export const storage = app ? getStorage(app) : null;
 
 // getReactNativePersistence guarda a sessão no AsyncStorage — sem isso
 // o SDK usa persistência só em memória no React Native, e toda

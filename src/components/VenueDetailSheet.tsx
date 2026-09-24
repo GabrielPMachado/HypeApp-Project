@@ -17,6 +17,7 @@ import { RatingStars } from "@/components/RatingStars";
 import { ReviewItem } from "@/components/ReviewItem";
 import { VenueAvatar } from "@/components/VenueAvatar";
 import { VenueLocationMap } from "@/components/VenueLocationMap";
+import { VenuePhotosSection } from "@/components/VenuePhotosSection";
 import { VIBE_TAG_LABELS } from "@/constants/vibeTags";
 import { useVenues } from "@/context/VenuesContext";
 import { colors } from "@/theme/colors";
@@ -202,6 +203,8 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
               ))}
             </View>
           </View>
+
+          <VenuePhotosSection venueId={venue.id} photos={venue.photos ?? []} />
 
           <View style={styles.hypeBlock}>
             <View style={styles.hypeRow}>

@@ -1,20 +1,23 @@
 import { Feather } from "@expo/vector-icons";
 import {
+  arrayRemove,
   arrayUnion,
   collection,
   doc,
   increment,
   onSnapshot,
   serverTimestamp,
+  updateDoc,
   writeBatch,
 } from "firebase/firestore";
+import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { useAuth } from "@/context/AuthContext";
 import { mockVenues } from "@/data/mockVenues";
-import { db, isFirebaseConfigured } from "@/services/firebase";
-import type { HypeReport, Review, Venue } from "@/types/venue";
+import { db, isFirebaseConfigured, storage } from "@/services/firebase";
+import type { HypeReport, Review, Venue, VenuePhoto } from "@/types/venue";
 
 interface Feedback {
   icon: keyof typeof Feather.glyphMap;
@@ -36,6 +39,13 @@ interface VenuesContextValue {
   retryLoad: () => void;
   addHypeReport: (id: string, score: number) => void;
   addReview: (id: string, review: Omit<Review, "id" | "createdAt" | "authorName" | "authorId">) => void;
+  // Envia uma foto do bar (URI local, da câmera/galeria — ver
+  // VenueDetailSheet.tsx). Sem Firebase, fica só no estado local (não
+  // sobrevive a um reload, igual o antigo setVenueLogo).
+  uploadVenuePhoto: (id: string, localUri: string) => Promise<void>;
+  // Só quem enviou pode apagar a própria foto (a UI já esconde o botão
+  // pras dos outros, mas a regra do Firestore é quem garante de verdade).
+  deleteVenuePhoto: (venueId: string, photo: VenuePhoto) => Promise<void>;
   reloadMockData: () => void;
   // Só pra dev: popula "venues/{id}" no Firestore com o mockVenues.ts
   // atual (um doc por bar, setDoc — idempotente, rodar de novo só
@@ -239,6 +249,79 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  // Upload em duas etapas: o arquivo vai pro Storage primeiro (fora do
+  // documento, que ficaria gigante e caro de ler com fotos embutidas),
+  // e só a URL pública entra no array "photos" do bar via arrayUnion —
+  // mesmo desenho de hypeReports/reviews, sem subcoleção nova.
+  //
+  // ATENÇÃO: espelhar nas regras do Storage —
+  //   match /venue-photos/{venueId}/{fileName} {
+  //     allow read: if true;
+  //     allow write: if request.auth != null
+  //       && fileName.matches(request.auth.uid + '_.*')
+  //       && request.resource.size < 8 * 1024 * 1024;
+  //   }
+  const uploadVenuePhoto = async (id: string, localUri: string) => {
+    const newPhoto: VenuePhoto = {
+      id: `${id}-ph-${Date.now()}`,
+      url: localUri,
+      authorId: user?.uid ?? "",
+      authorName: displayName || "Você",
+      createdAt: new Date().toISOString(),
+    };
+
+    if (isFirebaseConfigured && db && storage) {
+      if (!user) return; // trava defensiva, ver addHypeReport
+
+      const response = await fetch(localUri);
+      const blob = await response.blob();
+      const fileRef = ref(storage, `venue-photos/${id}/${user.uid}_${Date.now()}.jpg`);
+      await uploadBytes(fileRef, blob);
+      const url = await getDownloadURL(fileRef);
+
+      await updateDoc(doc(db, "venues", id), {
+        photos: arrayUnion({ ...newPhoto, url }),
+      }).catch((error: Error) => {
+        console.error("uploadVenuePhoto falhou:", error);
+        setFeedback({
+          icon: "alert-circle",
+          title: "Não deu pra enviar a foto",
+          message: "Tenta de novo em instantes.",
+        });
+      });
+      return;
+    }
+
+    setVenues((prev) =>
+      prev.map((venue) =>
+        venue.id === id ? { ...venue, photos: [...(venue.photos ?? []), newPhoto] } : venue
+      )
+    );
+  };
+
+  const deleteVenuePhoto = async (venueId: string, photo: VenuePhoto) => {
+    if (isFirebaseConfigured && db) {
+      await updateDoc(doc(db, "venues", venueId), { photos: arrayRemove(photo) }).catch(
+        (error: Error) => console.error("deleteVenuePhoto falhou:", error)
+      );
+      // A URL é derivável de volta numa referência do Storage (a v9
+      // aceita uma URL https direto em ref()) — não precisa guardar o
+      // caminho do arquivo à parte só pra isso.
+      if (storage) {
+        await deleteObject(ref(storage, photo.url)).catch(() => {});
+      }
+      return;
+    }
+
+    setVenues((prev) =>
+      prev.map((venue) =>
+        venue.id === venueId
+          ? { ...venue, photos: (venue.photos ?? []).filter((p) => p.id !== photo.id) }
+          : venue
+      )
+    );
+  };
+
   // Só pra desenvolvimento: o Fast Refresh recarrega o módulo
   // mockVenues.ts sozinho quando o arquivo é salvo, mas o useState acima
   // só lê o valor inicial dele UMA vez (na primeira montagem) — é assim
@@ -279,6 +362,8 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
       retryLoad,
       addHypeReport,
       addReview,
+      uploadVenuePhoto,
+      deleteVenuePhoto,
       reloadMockData,
       seedFirestoreFromMock,
     }),
