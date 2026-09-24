@@ -4,6 +4,7 @@ import type { HypeLevel, HypeReport, Venue } from "@/types/venue";
 export const HYPE_HOLD_MINUTES = 30; // um report vale integralmente por esse tempo
 export const HYPE_DECAY_STEP_MINUTES = 30; // depois disso, perde HYPE_DECAY_POINTS a cada passo desses
 export const HYPE_DECAY_POINTS = 1;
+export const HYPE_COOLDOWN_MINUTES = 30; // intervalo entre dois hypes da mesma pessoa no mesmo bar (espelha canSubmitHype nas regras do Firestore)
 export const HYPE_ZERO_AFTER_MINUTES = 120; // sem nenhum report por esse tempo, a nota zera de vez
 export const HYPE_RESET_HOUR = 12; // o "dia de hype" vai de 12:00 a 12:00 (hora local do aparelho)
 
@@ -72,6 +73,27 @@ export function getCurrentHypeStatus(reports: HypeReport[]): HypeStatus | null {
     pointsLost: latest.score - score,
     lastReportAt: latest.createdAt,
   };
+}
+
+// Minutos que faltam pra esta pessoa poder hypar este bar de novo (0 = já
+// pode). É só um aviso antecipado na tela — quem garante o limite de verdade
+// é a regra do Firestore. Só enxerga reports que guardam o authorId (os
+// antigos não têm), aí a regra continua sendo a última palavra.
+export function hypeCooldownRemainingMinutes(
+  reports: HypeReport[],
+  uid: string,
+  now: number = Date.now()
+): number {
+  let last: number | null = null;
+  for (const r of reports) {
+    if (r.authorId !== uid) continue;
+    const time = new Date(r.createdAt).getTime();
+    if (last === null || time > last) last = time;
+  }
+  if (last === null) return 0;
+
+  const remainingMs = HYPE_COOLDOWN_MINUTES * 60 * 1000 - (now - last);
+  return remainingMs > 0 ? Math.ceil(remainingMs / (60 * 1000)) : 0;
 }
 
 // Converte a nota 0-10 numa categoria pro selo colorido (🟢🟡🔴).

@@ -1,6 +1,7 @@
 import {
   formatHypeWindow,
   getCurrentHypeStatus,
+  hypeCooldownRemainingMinutes,
   hypeDayStart,
   hypeTrendByDay,
   rankingScore,
@@ -198,5 +199,38 @@ describe("rankingScore", () => {
 
   it("usa a média real assim que existe pelo menos um report", () => {
     expect(rankingScore({ hypeScore: 6.5, hypeReports: [report(5, 9)] })).toBe(9);
+  });
+});
+
+describe("hypeCooldownRemainingMinutes", () => {
+  const mine = (minutesAgo: number, uid = "eu"): HypeReport => ({
+    ...report(minutesAgo, 7),
+    authorId: uid,
+  });
+
+  it("0 quando a pessoa nunca hypou esse bar", () => {
+    expect(hypeCooldownRemainingMinutes([], "eu")).toBe(0);
+    expect(hypeCooldownRemainingMinutes([report(5, 8)], "eu")).toBe(0);
+  });
+
+  it("ignora hypes de outras pessoas", () => {
+    expect(hypeCooldownRemainingMinutes([mine(2, "outra")], "eu")).toBe(0);
+  });
+
+  it.each([
+    [1, 29],
+    [10, 20],
+    [29, 1],
+  ])("meu hype de %smin atrás: faltam %smin", (minutesAgo, expected) => {
+    expect(hypeCooldownRemainingMinutes([mine(minutesAgo)], "eu")).toBe(expected);
+  });
+
+  it("libera exatamente aos 30min e depois", () => {
+    expect(hypeCooldownRemainingMinutes([mine(30)], "eu")).toBe(0);
+    expect(hypeCooldownRemainingMinutes([mine(90)], "eu")).toBe(0);
+  });
+
+  it("conta a partir do meu hype mais recente", () => {
+    expect(hypeCooldownRemainingMinutes([mine(80), mine(5), mine(40)], "eu")).toBe(25);
   });
 });

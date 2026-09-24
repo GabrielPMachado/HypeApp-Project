@@ -19,6 +19,7 @@ import { VenueAvatar } from "@/components/VenueAvatar";
 import { VenueLocationMap } from "@/components/VenueLocationMap";
 import { VenuePhotosSection } from "@/components/VenuePhotosSection";
 import { VIBE_TAG_LABELS } from "@/constants/vibeTags";
+import { useAuth } from "@/context/AuthContext";
 import { useVenues } from "@/context/VenuesContext";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
@@ -29,6 +30,7 @@ import {
   getCurrentHypeStatus,
   HYPE_HOLD_MINUTES,
   HYPE_ZERO_AFTER_MINUTES,
+  hypeCooldownRemainingMinutes,
 } from "@/utils/hype";
 import { getAggregateRating, getOverallRating } from "@/utils/rating";
 import { getAggregateVibeTags } from "@/utils/vibeTags";
@@ -54,11 +56,16 @@ function formatPointsLost(points: number): string {
 // especificamente pra resolver isso nas duas plataformas — arraste de
 // qualquer ponto do conteúdo, só fecha quando o scroll já estiver no topo.
 export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetProps) {
+  const { user } = useAuth();
   const { addHypeReport, addReview } = useVenues();
   const [isHypeModalOpen, setHypeModalOpen] = useState(false);
   const [isEvaluationOpen, setEvaluationOpen] = useState(false);
   const [isCheckingIn, setCheckingIn] = useState(false);
-  const [checkInError, setCheckInError] = useState("");
+  // Aviso curto acima dos botões de avaliar (fora do local, GPS indisponível,
+  // hype cedo demais) — faixa dentro da folha, não um Modal por cima dela.
+  const [notice, setNotice] = useState<{ icon: keyof typeof Feather.glyphMap; text: string } | null>(
+    null
+  );
   // Cada check-in ganha um número; fechar a folha ou trocar de bar
   // invalida o que estiver em andamento (ver o efeito abaixo), pra o
   // resultado tardio do GPS não reabrir aviso/modal num bar que já saiu
@@ -141,7 +148,7 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
   useEffect(() => {
     checkInRequestRef.current += 1;
     setCheckingIn(false);
-    setCheckInError("");
+    setNotice(null);
   }, [visible, venue?.id]);
 
   const renderBackdrop = useCallback(
@@ -170,14 +177,28 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
   const handleRequestEvaluation = async (kind: "hype" | "review") => {
     checkInRequestRef.current += 1;
     const requestId = checkInRequestRef.current;
-    setCheckInError("");
+    setNotice(null);
+
+    // Hype cedo demais: avisa antes de abrir o seletor de valor (nem gasta
+    // a espera do GPS) — a regra do Firestore barraria só depois do envio.
+    if (kind === "hype" && user) {
+      const waitMinutes = hypeCooldownRemainingMinutes(venue.hypeReports, user.uid);
+      if (waitMinutes > 0) {
+        setNotice({
+          icon: "clock",
+          text: `Calma, você já hypou esse bar agora há pouco. Dá pra hypar de novo em ${waitMinutes} min.`,
+        });
+        return;
+      }
+    }
+
     setCheckingIn(true);
     const result = await verifyCheckIn(venue);
     if (requestId !== checkInRequestRef.current) return;
     setCheckingIn(false);
 
     if (!result.ok) {
-      setCheckInError(checkInFailureMessage(result.reason));
+      setNotice({ icon: "map-pin", text: checkInFailureMessage(result.reason) });
       return;
     }
 
@@ -292,14 +313,14 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
           />
 
           <View style={styles.evaluateBlock}>
-            {checkInError !== "" && (
+            {notice && (
               <View
                 style={styles.checkInNotice}
                 accessibilityRole="alert"
                 accessibilityLiveRegion="polite"
               >
-                <Feather name="map-pin" size={15} color={colors.accent} />
-                <Text style={styles.checkInNoticeText}>{checkInError}</Text>
+                <Feather name={notice.icon} size={15} color={colors.accent} />
+                <Text style={styles.checkInNoticeText}>{notice.text}</Text>
               </View>
             )}
 
