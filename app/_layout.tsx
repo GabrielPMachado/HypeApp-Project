@@ -12,6 +12,7 @@ import { AuthScreen } from "@/components/AuthScreen";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { LocationProvider } from "@/context/LocationContext";
+import { ProximityAlertsProvider } from "@/context/ProximityAlertsContext";
 import { VenuesProvider } from "@/context/VenuesContext";
 import { isFirebaseConfigured } from "@/services/firebase";
 import { colors } from "@/theme/colors";
@@ -76,15 +77,17 @@ export default function RootLayout() {
         <AuthProvider>
           <LocationProvider>
             <VenuesProvider>
-              {/* Por dentro dos outros providers de propósito: o conteúdo de
-                  um BottomSheetModal é renderizado num portal na posição
-                  deste provider (não onde o sheet é declarado) — se ele
-                  ficasse acima, tudo dentro dos sheets perderia os
-                  contextos (useAuth, useVenues...). */}
-              <BottomSheetModalProvider>
-                <StatusBar style="light" />
-                <RootNavigator />
-              </BottomSheetModalProvider>
+              <ProximityAlertsProvider>
+                {/* Por dentro dos outros providers de propósito: o conteúdo de
+                    um BottomSheetModal é renderizado num portal na posição
+                    deste provider (não onde o sheet é declarado) — se ele
+                    ficasse acima, tudo dentro dos sheets perderia os
+                    contextos (useAuth, useVenues...). */}
+                <BottomSheetModalProvider>
+                  <StatusBar style="light" />
+                  <RootNavigator />
+                </BottomSheetModalProvider>
+              </ProximityAlertsProvider>
             </VenuesProvider>
           </LocationProvider>
         </AuthProvider>

@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -21,6 +21,7 @@ import { RecapModal } from "@/components/RecapModal";
 import { StoreModal } from "@/components/StoreModal";
 import { UserListModal } from "@/components/UserListModal";
 import { useAuth } from "@/context/AuthContext";
+import { useProximityAlerts } from "@/context/ProximityAlertsContext";
 import { useVenues } from "@/context/VenuesContext";
 import { getFrameColor, getItem } from "@/data/storeCatalog";
 import { isFirebaseConfigured } from "@/services/firebase";
@@ -82,6 +83,7 @@ interface ProfileModalProps {
 export function ProfileModal({ visible, onClose }: ProfileModalProps) {
   const { user, profile, displayName, coins, signOut, deleteAccount } = useAuth();
   const { venues } = useVenues();
+  const { enabled: proximityEnabled, setEnabled: setProximityEnabled } = useProximityAlerts();
   const [isEditing, setEditing] = useState(false);
   const [isStoreOpen, setStoreOpen] = useState(false);
   const [isRecapOpen, setRecapOpen] = useState(false);
@@ -239,6 +241,22 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
             <EarnRow icon="camera" label="Check-in com QR Code na mesa" reward="Em breve" muted />
           </Section>
 
+          <Section title="NOTIFICAÇÕES">
+            <View style={styles.settingRow}>
+              <View style={styles.settingText}>
+                <Text style={styles.settingLabel}>Bar lotado por perto</Text>
+                <Text style={styles.settingHint}>
+                  Avisa quando você passar perto de um bar lotado agora — só com o app aberto.
+                </Text>
+              </View>
+              <Switch
+                value={proximityEnabled}
+                onValueChange={setProximityEnabled}
+                trackColor={{ true: colors.accent }}
+              />
+            </View>
+          </Section>
+
           <Pressable
             onPress={handleSignOut}
             accessibilityRole="button"
@@ -338,6 +356,26 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
     gap: 22,
+  },
+  settingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  settingText: {
+    flex: 1,
+    gap: 2,
+  },
+  settingLabel: {
+    fontSize: 13,
+    fontFamily: fontFamily.bodyMedium,
+    color: colors.text,
+  },
+  settingHint: {
+    fontSize: 11,
+    fontFamily: fontFamily.body,
+    color: colors.textFaint,
+    lineHeight: 15,
   },
   socialRow: {
     flexDirection: "row",
