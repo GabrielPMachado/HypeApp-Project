@@ -4,7 +4,6 @@ import { useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -17,8 +16,9 @@ import {
 
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { GoogleLogo } from "@/components/GoogleLogo";
+import { LegalModal } from "@/components/LegalModal";
 import { PressableScale } from "@/components/PressableScale";
-import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/constants/legal";
+import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/constants/legalContent";
 import { isGoogleSignInConfigured, useAuth } from "@/context/AuthContext";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
@@ -123,6 +123,7 @@ export function AuthScreen() {
   // no próprio cadastro.
   const [confirmedAge, setConfirmedAge] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [legalDocVisible, setLegalDocVisible] = useState<"terms" | "privacy" | null>(null);
 
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
@@ -314,11 +315,11 @@ export function AuthScreen() {
               </ConsentCheckbox>
               <ConsentCheckbox checked={acceptedTerms} onToggle={() => setAcceptedTerms((v) => !v)}>
                 Li e aceito os{" "}
-                <Text style={styles.consentLink} onPress={() => Linking.openURL(TERMS_OF_SERVICE_URL)}>
+                <Text style={styles.consentLink} onPress={() => setLegalDocVisible("terms")}>
                   Termos de Uso
                 </Text>{" "}
                 e a{" "}
-                <Text style={styles.consentLink} onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
+                <Text style={styles.consentLink} onPress={() => setLegalDocVisible("privacy")}>
                   Política de Privacidade
                 </Text>
                 .
@@ -388,6 +389,17 @@ export function AuthScreen() {
         title="E-mail enviado"
         message="Confere sua caixa de entrada pra redefinir a senha."
         onClose={() => setResetSent(false)}
+      />
+
+      <LegalModal
+        visible={legalDocVisible === "terms"}
+        document={TERMS_OF_SERVICE}
+        onClose={() => setLegalDocVisible(null)}
+      />
+      <LegalModal
+        visible={legalDocVisible === "privacy"}
+        document={PRIVACY_POLICY}
+        onClose={() => setLegalDocVisible(null)}
       />
     </KeyboardAvoidingView>
   );

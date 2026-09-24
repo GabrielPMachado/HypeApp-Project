@@ -1,12 +1,13 @@
 import { Feather } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { EditProfileModal } from "@/components/EditProfileModal";
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { FollowStats } from "@/components/FollowStats";
+import { LegalModal } from "@/components/LegalModal";
 import { PartnerPanelModal } from "@/components/PartnerPanelModal";
 import {
   ActivityList,
@@ -20,7 +21,7 @@ import {
 import { RecapModal } from "@/components/RecapModal";
 import { StoreModal } from "@/components/StoreModal";
 import { UserListModal } from "@/components/UserListModal";
-import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/constants/legal";
+import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/constants/legalContent";
 import { useAuth } from "@/context/AuthContext";
 import { useProximityAlerts } from "@/context/ProximityAlertsContext";
 import { useVenues } from "@/context/VenuesContext";
@@ -96,6 +97,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
   // types/venue.ts) — assume 1 bar por dono, que é o caso de uso real
   // até aqui (nenhuma rede cadastrada ainda).
   const [isPartnerPanelOpen, setPartnerPanelOpen] = useState(false);
+  const [legalDocVisible, setLegalDocVisible] = useState<"terms" | "privacy" | null>(null);
   const ownedVenue = venues.find((venue) => venue.ownerId === user?.uid);
 
   const stats = {
@@ -278,15 +280,26 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
           </Pressable>
 
           <View style={styles.legalRow}>
-            <Pressable onPress={() => Linking.openURL(TERMS_OF_SERVICE_URL)} hitSlop={6}>
+            <Pressable onPress={() => setLegalDocVisible("terms")} hitSlop={6}>
               <Text style={styles.legalLink}>Termos de Uso</Text>
             </Pressable>
             <Text style={styles.legalSeparator}>·</Text>
-            <Pressable onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} hitSlop={6}>
+            <Pressable onPress={() => setLegalDocVisible("privacy")} hitSlop={6}>
               <Text style={styles.legalLink}>Política de Privacidade</Text>
             </Pressable>
           </View>
         </ScrollView>
+
+        <LegalModal
+          visible={legalDocVisible === "terms"}
+          document={TERMS_OF_SERVICE}
+          onClose={() => setLegalDocVisible(null)}
+        />
+        <LegalModal
+          visible={legalDocVisible === "privacy"}
+          document={PRIVACY_POLICY}
+          onClose={() => setLegalDocVisible(null)}
+        />
 
         <EditProfileModal
           visible={isEditing}
