@@ -7,6 +7,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "test": "jest",
     "release": "commit-and-tag-version",
     "prepare": "husky"
   },
@@ -49,12 +50,24 @@
       ]
     }
   },
+  "jest": {
+    "preset": "jest-expo",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/android/",
+      "/ios/"
+    ]
+  },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.2.2",
     "commit-and-tag-version": "^13.2.1",
+    "expo-modules-core": "~57.0.19",
     "husky": "^9.1.7",
+    "jest": "^29.7.0",
+    "jest-expo": "^57.0.5",
     "typescript": "~6.0.3"
   },
   "private": true
