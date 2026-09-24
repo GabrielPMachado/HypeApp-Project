@@ -39,14 +39,16 @@ export const STORE_ITEMS: StoreItem[] = [
   { id: "av-cool", kind: "avatar", name: "Curtidor", price: 0, icon: "emoticon-cool", color: "#5AA9E6" },
   { id: "av-party", kind: "avatar", name: "Festeiro", price: 0, icon: "party-popper", color: "#F0559A" },
   { id: "av-moon", kind: "avatar", name: "Notívago", price: 0, icon: "moon-waning-crescent", color: "#A67CFF" },
-  // Avatares — pagos
-  { id: "av-fox", kind: "avatar", name: "Gato da Noite", price: 80, icon: "cat", color: "#E8813A" },
-  { id: "av-owl", kind: "avatar", name: "Coruja", price: 80, icon: "owl", color: "#C49A6C" },
-  { id: "av-ghost", kind: "avatar", name: "Fantasma", price: 120, icon: "ghost", color: "#B0BEC5" },
+  // Avatares — pagos (ids não mudam, ver aviso no topo do arquivo — pegada
+  // de vida noturna sofisticada/VIP em vez de criaturas fofas/infantis ou
+  // objetos de "festa" (violão, disco, ficha de pôquer testados antes)
+  { id: "av-fox", kind: "avatar", name: "Estiloso", price: 80, icon: "glass-cocktail", color: "#E8813A" },
+  { id: "av-owl", kind: "avatar", name: "Sommelier", price: 80, icon: "glass-wine", color: "#C49A6C" },
+  { id: "av-ghost", kind: "avatar", name: "Enigma", price: 120, icon: "drama-masks", color: "#B0BEC5" },
   { id: "av-dj", kind: "avatar", name: "DJ", price: 150, icon: "headphones", color: "#4FC3F7" },
-  { id: "av-wolf", kind: "avatar", name: "Morcego", price: 150, icon: "bat", color: "#B39DDB" },
-  { id: "av-alien", kind: "avatar", name: "Alien", price: 250, icon: "alien", color: "#6BCB77" },
-  { id: "av-dragon", kind: "avatar", name: "Unicórnio", price: 400, icon: "unicorn", color: "#FF8AD8" },
+  { id: "av-wolf", kind: "avatar", name: "Diamante", price: 150, icon: "diamond-stone", color: "#B39DDB" },
+  { id: "av-alien", kind: "avatar", name: "Executivo", price: 250, icon: "watch", color: "#B8B8C0" },
+  { id: "av-dragon", kind: "avatar", name: "VIP", price: 400, icon: "key-variant", color: "#E8B24D" },
   { id: "av-crown", kind: "avatar", name: "Realeza", price: 600, icon: "crown", color: "#FFD54A" },
 
   // Molduras
