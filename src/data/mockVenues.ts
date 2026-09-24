@@ -353,6 +353,20 @@ export const mockVenues: Venue[] = [
     ],
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: "bf-6",
+    name: "Apricot Bistrô",
+    address: "Rua Felipe Camarão, 265 — Bom Fim",
+    priceRange: "$$",
+    openingHours: "Seg a Sex, 11h30 às 14h30",
+    latitude: -30.0315571,
+    longitude: -51.2099113,
+    hypeScore: 5,
+    vibeTags: ["para-conversar"],
+    hypeReports: [],
+    reviews: [],
+    updatedAt: new Date().toISOString(),
+  },
 
   // ── Moinhos de Vento, Porto Alegre ────────────────────────────────
   {
