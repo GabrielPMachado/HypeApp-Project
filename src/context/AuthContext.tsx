@@ -38,6 +38,10 @@ import { parseProfile, type Profile } from "@/utils/profile";
 
 export const isGoogleSignInConfigured = googleWebClientId !== "";
 
+// Janela em que o Firebase ainda aceita apagar a conta sem novo login (a
+// regra dele é ~5 min; 4 dá folga pro relógio do aparelho).
+const RECENT_LOGIN_WINDOW_MS = 4 * 60 * 1000;
+
 // Campos que a própria pessoa edita no perfil (titleId null = voltar pro
 // título do nível). As regras do Firestore validam tamanhos e se o item
 // equipado é gratuito ou está no inventário.
@@ -236,75 +240,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await sendPasswordResetEmail(auth, email);
   };
 
-  // Anonimiza/apaga tudo que o LGPD (direito de exclusão, ver Política
-  // de Privacidade seção 05) exige antes de encerrar a conta: hypes e
-  // avaliações passam a aparecer como "Conta excluída" (o conteúdo em
-  // si fica no histórico do bar, só perde o vínculo com a pessoa),
-  // fotos enviadas somem do bar e do Storage, e a relação de seguir
-  // some nos dois sentidos. Roda ANTES do deleteUser porque as regras
-  // do Firestore exigem request.auth em cada escrita abaixo — depois
-  // do deleteUser a sessão já não vale mais nada.
+  // Limpeza de dados pessoais antes de encerrar a conta (LGPD, ver Política
+  // de Privacidade seção 05). Roda com a sessão ainda válida, porque as
+  // regras do Firestore exigem request.auth em cada escrita:
+  //  - fotos enviadas saem do bar e do Storage;
+  //  - a relação de seguir some nos dois sentidos;
+  //  - hypes e avaliações NÃO dá pra anonimizar daqui: são itens de um array
+  //    dentro do bar e as regras não conseguem conferir de quem é cada item,
+  //    então liberar essa edição deixaria qualquer conta alterar avaliações
+  //    de outras. Em vez disso registra um pedido em deletionRequests/{uid}
+  //    e a anonimização ("Conta excluída") é feita em até 15 dias por
+  //    scripts/process-deletion-requests.cjs, que só age se a conta sumiu;
+  //  - por fim apaga o próprio perfil.
+  // Erros propagam de propósito: a exclusão só vale se a limpeza vale, e
+  // cada passo é idempotente, então tentar de novo é seguro. Só a remoção
+  // dos arquivos no Storage é tolerante a falha (o arquivo já pode ter
+  // sumido, e o documento do bar é o que o app enxerga).
   //
-  // Não dá pra fazer isso com uma query: hypeReports/reviews/photos são
-  // arrays dentro de cada venue (não subcoleção — ver comentário em
-  // VenuesContext.tsx), e o Firestore não consulta "array que contém
-  // um item com este campo". Por isso varre a coleção inteira e só
-  // reescreve os documentos que de fato têm algo do uid.
-  //
-  // ATENÇÃO: espelhar nas regras do Firestore — o update de venues/{id}
-  // feito aqui só troca authorName/authorId de itens já existentes cujo
-  // authorId é o do próprio uid autenticado, ou remove/mantém itens de
-  // photos pelo mesmo critério; as regras não conseguem validar campo a
-  // campo que só isso mudou (só que "algo mudou"), então essa escrita
-  // convive com o mesmo nível de confiança que addReview/uploadVenuePhoto
-  // já têm hoje.
-  //
-  // ATENÇÃO: espelhar nas regras do Firestore — hoje só quem SEGUE pode
-  // escrever nas duas pontas de uma relação (ver comentário em
-  // followUser/unfollowUser, acima). Isso cobre limpar o meu próprio
-  // "following" (uidToRemove segue X), mas não o meu "followers"
-  // (X segue uidToRemove): apagar essas duas pontas exige que o ALVO
-  // também possa escrever, senão fica um "fantasma" pra sempre. Liberar
-  // pros dois lados nas duas subcoleções:
-  //   match /users/{uid}/following/{targetUid} {
-  //     allow write: if request.auth != null
-  //       && (request.auth.uid == uid || request.auth.uid == targetUid);
+  // ATENÇÃO: espelhar nas regras do Firestore —
+  //   match /deletionRequests/{uid} {
+  //     allow read, delete: if false;
+  //     allow create, update: if request.auth != null && request.auth.uid == uid
+  //       && request.resource.data.keys().hasOnly(['requestedAt'])
+  //       && request.resource.data.requestedAt == request.time;
   //   }
-  //   match /users/{uid}/followers/{followerUid} {
-  //     allow write: if request.auth != null
-  //       && (request.auth.uid == followerUid || request.auth.uid == uid);
-  //   }
+  // A remoção de fotos usa a regra de venues "a lista de photos só encolhe";
+  // following/followers, a regra que libera apagar pros dois lados (ver
+  // comentário em followUser).
   const cleanupUserData = async (uidToRemove: string) => {
     if (!db) return;
     const database = db;
 
-    const anonymize = <T extends { authorId?: string; authorName: string }>(items: T[]): T[] =>
-      items.map((item): T => {
-        if (item.authorId !== uidToRemove) return item;
-        const clean = { ...item, authorName: "Conta excluída" };
-        delete clean.authorId;
-        return clean;
-      });
-
     const venuesSnap = await getDocs(collection(database, "venues"));
-    const venuesBatch = writeBatch(database);
+    const photosBatch = writeBatch(database);
     const storageDeletes: Promise<void>[] = [];
-    let hasVenueWrites = false;
+    let hasPhotoWrites = false;
+    let hasContentToAnonymize = false;
 
-    venuesSnap.docs.forEach((venueDoc) => {
+    for (const venueDoc of venuesSnap.docs) {
       const venue = venueDoc.data() as Venue;
-      const ownPhotos = (venue.photos ?? []).filter((p) => p.authorId === uidToRemove);
-      const hasOwnHype = (venue.hypeReports ?? []).some((r) => r.authorId === uidToRemove);
-      const hasOwnReview = (venue.reviews ?? []).some((r) => r.authorId === uidToRemove);
-      if (ownPhotos.length === 0 && !hasOwnHype && !hasOwnReview) return;
+      if (
+        (venue.hypeReports ?? []).some((r) => r.authorId === uidToRemove) ||
+        (venue.reviews ?? []).some((r) => r.authorId === uidToRemove)
+      ) {
+        hasContentToAnonymize = true;
+      }
 
-      hasVenueWrites = true;
-      venuesBatch.update(venueDoc.ref, {
-        ...(ownPhotos.length > 0
-          ? { photos: (venue.photos ?? []).filter((p) => p.authorId !== uidToRemove) }
-          : {}),
-        ...(hasOwnHype ? { hypeReports: anonymize(venue.hypeReports ?? []) } : {}),
-        ...(hasOwnReview ? { reviews: anonymize(venue.reviews ?? []) } : {}),
+      const photos = venue.photos ?? [];
+      const ownPhotos = photos.filter((p) => p.authorId === uidToRemove);
+      if (ownPhotos.length === 0) continue;
+
+      hasPhotoWrites = true;
+      photosBatch.update(venueDoc.ref, {
+        photos: photos.filter((p) => p.authorId !== uidToRemove),
       });
       if (storage) {
         const bucket = storage;
@@ -312,9 +300,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           storageDeletes.push(deleteObject(ref(bucket, photo.url)).catch(() => {}));
         });
       }
-    });
+    }
 
-    if (hasVenueWrites) await venuesBatch.commit().catch(() => {});
+    if (hasPhotoWrites) await photosBatch.commit();
     await Promise.all(storageDeletes);
 
     const [followingSnap, followersSnap] = await Promise.all([
@@ -330,26 +318,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       socialBatch.delete(followerDoc.ref);
       socialBatch.delete(doc(database, "users", followerDoc.id, "following", uidToRemove));
     });
-    await socialBatch.commit().catch(() => {});
+    await socialBatch.commit();
+
+    if (hasContentToAnonymize) {
+      await setDoc(doc(database, "deletionRequests", uidToRemove), {
+        requestedAt: serverTimestamp(),
+      });
+    }
+    await deleteDoc(doc(database, "users", uidToRemove));
   };
 
-  // Apaga a conta de autenticação só depois da limpeza acima (que
-  // exige sessão válida) e do login do Google, se houver. Se o
-  // Firebase recusar por login antigo (auth/requires-recent-login), os
-  // dados já anonimizados/apagados não voltam — mas a conta em si
-  // sobrevive e a pessoa pode entrar nela de novo e tentar de novo;
-  // aceitável, já que a alternativa (limpar depois de apagar a conta)
-  // não teria mais sessão autenticada pra fazer as escritas.
+  // O Firebase recusa apagar a conta com login antigo (em torno de 5 min).
+  // Confere ANTES de mexer em qualquer dado — senão a limpeza rodaria e a
+  // conta sobreviveria, já sem perfil. O perfil também precisa sair antes
+  // do deleteUser: depois dele a sessão some e as regras negam o delete.
   const deleteAccount = async () => {
-    if (!auth?.currentUser) return;
-    const uidToRemove = auth.currentUser.uid;
-    await cleanupUserData(uidToRemove);
+    const currentUser = auth?.currentUser;
+    if (!auth || !currentUser) return;
+
+    const lastSignIn = Date.parse(currentUser.metadata.lastSignInTime ?? "");
+    if (Number.isFinite(lastSignIn) && Date.now() - lastSignIn > RECENT_LOGIN_WINDOW_MS) {
+      throw Object.assign(new Error("Login antigo demais pra excluir a conta."), {
+        code: "auth/requires-recent-login",
+      });
+    }
+
+    await cleanupUserData(currentUser.uid);
     if (isGoogleSignInConfigured) {
       const { GoogleSignin } = await import("@react-native-google-signin/google-signin");
       await GoogleSignin.signOut().catch(() => {});
     }
-    await deleteUser(auth.currentUser);
-    if (db) await deleteDoc(doc(db, "users", uidToRemove)).catch(() => {});
+    await deleteUser(currentUser);
   };
 
   const saveProfile = async (patch: ProfilePatch) => {
@@ -383,11 +382,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   //
   // ATENÇÃO: espelhar nas regras do Firestore —
   //   match /users/{uid}/following/{targetUid} {
-  //     allow write: if request.auth != null && request.auth.uid == uid;
+  //     allow read: if request.auth != null;
+  //     allow create, update: if request.auth != null && request.auth.uid == uid
+  //       && targetUid != uid && keys hasOnly(['createdAt']) && createdAt == request.time;
+  //     allow delete: if request.auth != null
+  //       && (request.auth.uid == uid || request.auth.uid == targetUid);
   //   }
-  //   match /users/{uid}/followers/{followerUid} {
-  //     allow write: if request.auth != null && request.auth.uid == followerUid;
-  //   }
+  //   match /users/{uid}/followers/{followerUid} — simétrico: quem cria é o
+  //   followerUid; apagar pode o followerUid ou o dono (uid), pra a limpeza
+  //   da exclusão de conta conseguir desfazer as duas pontas.
   const followUser = async (targetUid: string) => {
     if (!db || !uid || uid === targetUid) return;
     const batch = writeBatch(db);

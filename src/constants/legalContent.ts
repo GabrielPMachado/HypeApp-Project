@@ -182,11 +182,12 @@ export const PRIVACY_POLICY: LegalDocument = {
           label: "Excluir a conta",
           detail:
             "Perfil → Excluir conta. Isso apaga, permanentemente e sem como desfazer: sua conta " +
-            "de login e perfil (nome, bio, avatar, nível, moedas); suas fotos enviadas " +
-            "(removidas do armazenamento); suas relações de seguir (nos dois sentidos); e o " +
-            "vínculo do seu nome com os hypes/avaliações que você publicou — o conteúdo em si " +
-            "(a nota, o comentário) pode continuar no histórico do bar pra não distorcer a " +
-            'média da comunidade, mas passa a aparecer como "Conta excluída", sem ligação com você.',
+            "de login e perfil (nome, bio, avatar, nível, moedas), suas fotos enviadas " +
+            "(removidas do armazenamento) e suas relações de seguir (nos dois sentidos). Os " +
+            "hypes e avaliações que você publicou podem continuar no histórico do bar pra não " +
+            "distorcer a média da comunidade, mas o vínculo com você é desfeito: passam a " +
+            'aparecer como "Conta excluída", sem ligação com o seu perfil. Essa anonimização ' +
+            "é concluída em até 15 dias depois da exclusão.",
         },
       ],
     },
