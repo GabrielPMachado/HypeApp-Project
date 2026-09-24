@@ -189,7 +189,7 @@ export function VenuesProvider({ children }: { children: ReactNode }) {
         setFeedback({
           icon: "clock",
           title: "Não deu pra enviar",
-          message: "Espera um pouco antes de reportar esse bar de novo.",
+          message: "Espera um pouco antes de hypar esse bar de novo.",
         });
       });
       return;
