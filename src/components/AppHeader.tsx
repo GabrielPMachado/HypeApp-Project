@@ -1,5 +1,4 @@
 import { Feather } from "@expo/vector-icons";
-import type { ReactNode } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AccountButton } from "@/components/AccountButton";
@@ -13,14 +12,11 @@ import { locationLabel } from "@/utils/location";
 interface AppHeaderProps {
   location: CityLocation;
   onOpenLocationPicker: () => void;
-  subtitle?: ReactNode;
 }
 
 // Cabeçalho compartilhado pelas duas abas (Lista e Mapa): wordmark,
-// botão de recarregar dados mockados (só em dev) e o seletor de
-// região. Cada tela só passa a linha de legenda embaixo (subtitle) —
-// "Ranking de agora · N locais" numa, algo equivalente na outra.
-export function AppHeader({ location, onOpenLocationPicker, subtitle }: AppHeaderProps) {
+// botão de recarregar dados mockados (só em dev) e o seletor de região.
+export function AppHeader({ location, onOpenLocationPicker }: AppHeaderProps) {
   const { reloadMockData, seedFirestoreFromMock } = useVenues();
 
   const handleSeed = () => {
@@ -91,8 +87,6 @@ export function AppHeader({ location, onOpenLocationPicker, subtitle }: AppHeade
         </Text>
         <Feather name="chevron-down" size={14} color={colors.textFaint} />
       </Pressable>
-
-      {subtitle}
     </View>
   );
 }
@@ -161,13 +155,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.bodyMedium,
     color: colors.text,
-  },
-});
-
-export const subtitleStyles = StyleSheet.create({
-  text: {
-    fontSize: 12,
-    fontFamily: fontFamily.body,
-    color: colors.textFaint,
   },
 });

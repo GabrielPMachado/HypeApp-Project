@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AppHeader, subtitleStyles } from "@/components/AppHeader";
+import { AppHeader } from "@/components/AppHeader";
 import { LocationPickerModal } from "@/components/LocationPickerModal";
 import { SkeletonCard } from "@/components/SkeletonCard";
 import { VenueCard } from "@/components/VenueCard";
@@ -49,19 +49,7 @@ export default function ListaScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <AppHeader
-        location={location}
-        onOpenLocationPicker={() => setPickerOpen(true)}
-        subtitle={
-          !isLoading &&
-          !loadError &&
-          ranked.length > 0 && (
-            <Text style={subtitleStyles.text}>
-              Ranking de agora · {ranked.length} {ranked.length === 1 ? "local" : "locais"}
-            </Text>
-          )
-        }
-      />
+      <AppHeader location={location} onOpenLocationPicker={() => setPickerOpen(true)} />
 
       {isLoading ? (
         <View style={styles.list}>
