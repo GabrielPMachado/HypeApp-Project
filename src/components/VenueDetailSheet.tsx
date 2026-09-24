@@ -298,7 +298,7 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
             ) : (
               <View style={styles.reviewsList}>
                 {venue.reviews.map((review) => (
-                  <ReviewItem key={review.id} review={review} />
+                  <ReviewItem key={review.id} review={review} venueId={venue.id} />
                 ))}
               </View>
             )}

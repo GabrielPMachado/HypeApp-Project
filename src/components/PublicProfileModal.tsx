@@ -12,9 +12,10 @@ import {
   Section,
   StatsRow,
 } from "@/components/ProfileParts";
+import { ReportModal } from "@/components/ReportModal";
 import { useVenues } from "@/context/VenuesContext";
 import { getFrameColor, getItem } from "@/data/storeCatalog";
-import { db } from "@/services/firebase";
+import { db, isFirebaseConfigured } from "@/services/firebase";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import { calcPoints, getBadges, getLevelInfo, getUserActivity } from "@/utils/gamification";
@@ -50,6 +51,7 @@ export function PublicProfileModal({ uid, visible, onClose }: PublicProfileModal
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [isReportOpen, setReportOpen] = useState(false);
 
   useEffect(() => {
     if (!visible || !uid || !db) return;
@@ -111,7 +113,19 @@ export function PublicProfileModal({ uid, visible, onClose }: PublicProfileModal
           <Text style={styles.topTitle} accessibilityRole="header">
             Perfil
           </Text>
-          <View style={styles.topButton} />
+          {isFirebaseConfigured && uid ? (
+            <Pressable
+              onPress={() => setReportOpen(true)}
+              hitSlop={8}
+              style={styles.topButton}
+              accessibilityRole="button"
+              accessibilityLabel="Denunciar usuário"
+            >
+              <Feather name="flag" size={18} color={colors.textFaint} />
+            </Pressable>
+          ) : (
+            <View style={styles.topButton} />
+          )}
         </View>
 
         {isLoading && (
@@ -153,6 +167,15 @@ export function PublicProfileModal({ uid, visible, onClose }: PublicProfileModal
               <BadgeGrid badges={getBadges(stats, visitedVenues)} />
             </Section>
           </ScrollView>
+        )}
+
+        {uid && (
+          <ReportModal
+            visible={isReportOpen}
+            targetType="user"
+            targetId={uid}
+            onClose={() => setReportOpen(false)}
+          />
         )}
       </SafeAreaView>
     </Modal>
