@@ -316,9 +316,10 @@ export default function MapaScreen() {
                       <View style={styles.markerRingInner}>
                         <VenueAvatar
                           name={venue.name}
+                          venueId={venue.id}
                           logoUrl={venue.logoUrl}
                           vibeTag={venue.vibeTags[0]}
-                          size={26}
+                          size={32}
                         />
                       </View>
                     </LinearGradient>
@@ -326,9 +327,10 @@ export default function MapaScreen() {
                     <View style={[styles.markerRing, { borderColor: tone }]}>
                       <VenueAvatar
                         name={venue.name}
+                        venueId={venue.id}
                         logoUrl={venue.logoUrl}
                         vibeTag={venue.vibeTags[0]}
-                        size={26}
+                        size={32}
                       />
                     </View>
                   )}
