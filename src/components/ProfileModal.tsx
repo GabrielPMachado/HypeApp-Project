@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -20,6 +20,7 @@ import {
 import { RecapModal } from "@/components/RecapModal";
 import { StoreModal } from "@/components/StoreModal";
 import { UserListModal } from "@/components/UserListModal";
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/constants/legal";
 import { useAuth } from "@/context/AuthContext";
 import { useProximityAlerts } from "@/context/ProximityAlertsContext";
 import { useVenues } from "@/context/VenuesContext";
@@ -275,6 +276,16 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
           >
             <Text style={styles.deleteText}>Excluir conta</Text>
           </Pressable>
+
+          <View style={styles.legalRow}>
+            <Pressable onPress={() => Linking.openURL(TERMS_OF_SERVICE_URL)} hitSlop={6}>
+              <Text style={styles.legalLink}>Termos de Uso</Text>
+            </Pressable>
+            <Text style={styles.legalSeparator}>·</Text>
+            <Pressable onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} hitSlop={6}>
+              <Text style={styles.legalLink}>Política de Privacidade</Text>
+            </Pressable>
+          </View>
         </ScrollView>
 
         <EditProfileModal
@@ -447,5 +458,22 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.body,
     color: colors.textFaint,
     textDecorationLine: "underline",
+  },
+  legalRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+  },
+  legalLink: {
+    fontSize: 11,
+    fontFamily: fontFamily.body,
+    color: colors.textFaint,
+    textDecorationLine: "underline",
+  },
+  legalSeparator: {
+    fontSize: 11,
+    color: colors.textFaint,
   },
 });

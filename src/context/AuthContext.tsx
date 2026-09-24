@@ -12,10 +12,12 @@ import {
 } from "firebase/auth";
 import {
   arrayUnion,
+  collection,
   deleteDoc,
   deleteField,
   doc,
   getDoc,
+  getDocs,
   increment,
   onSnapshot,
   serverTimestamp,
@@ -23,12 +25,13 @@ import {
   updateDoc,
   writeBatch,
 } from "firebase/firestore";
+import { deleteObject, ref } from "firebase/storage";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { FeedbackModal } from "@/components/FeedbackModal";
 import type { StoreItem } from "@/data/storeCatalog";
-import { auth, db, googleWebClientId, isFirebaseConfigured } from "@/services/firebase";
-import type { VibeTag } from "@/types/venue";
+import { auth, db, googleWebClientId, isFirebaseConfigured, storage } from "@/services/firebase";
+import type { Venue, VibeTag } from "@/types/venue";
 import { calcCoins, calcPoints, getLevelInfo } from "@/utils/gamification";
 import { haptics } from "@/utils/haptics";
 import { parseProfile, type Profile } from "@/utils/profile";
@@ -233,15 +236,108 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await sendPasswordResetEmail(auth, email);
   };
 
-  // Apaga a conta de autenticação primeiro: se o Firebase recusar por
-  // login antigo (auth/requires-recent-login), nada foi apagado ainda e
-  // a pessoa pode entrar de novo e tentar outra vez. Só depois de
-  // confirmado apaga o perfil público em users/{uid} — deixar pra
-  // depois evita um perfil "órfão" sem conta caso a segunda escrita
-  // falhe por falta de rede.
+  // Anonimiza/apaga tudo que o LGPD (direito de exclusão, ver Política
+  // de Privacidade seção 05) exige antes de encerrar a conta: hypes e
+  // avaliações passam a aparecer como "Conta excluída" (o conteúdo em
+  // si fica no histórico do bar, só perde o vínculo com a pessoa),
+  // fotos enviadas somem do bar e do Storage, e a relação de seguir
+  // some nos dois sentidos. Roda ANTES do deleteUser porque as regras
+  // do Firestore exigem request.auth em cada escrita abaixo — depois
+  // do deleteUser a sessão já não vale mais nada.
+  //
+  // Não dá pra fazer isso com uma query: hypeReports/reviews/photos são
+  // arrays dentro de cada venue (não subcoleção — ver comentário em
+  // VenuesContext.tsx), e o Firestore não consulta "array que contém
+  // um item com este campo". Por isso varre a coleção inteira e só
+  // reescreve os documentos que de fato têm algo do uid.
+  //
+  // ATENÇÃO: espelhar nas regras do Firestore — o update de venues/{id}
+  // feito aqui só troca authorName/authorId de itens já existentes cujo
+  // authorId é o do próprio uid autenticado, ou remove/mantém itens de
+  // photos pelo mesmo critério; as regras não conseguem validar campo a
+  // campo que só isso mudou (só que "algo mudou"), então essa escrita
+  // convive com o mesmo nível de confiança que addReview/uploadVenuePhoto
+  // já têm hoje.
+  //
+  // ATENÇÃO: espelhar nas regras do Firestore — pra apagar o lado
+  // espelhado em quem me segue, o delete de users/{uid}/following/{uid
+  // que está sendo excluído} precisa ser liberado também pro PRÓPRIO
+  // alvo (não só o dono da subcoleção como hoje), simetricamente ao que
+  // já vale pra .../followers/{followerUid}:
+  //   match /users/{uid}/following/{targetUid} {
+  //     allow write: if request.auth != null
+  //       && (request.auth.uid == uid || request.auth.uid == targetUid);
+  //   }
+  const cleanupUserData = async (uidToRemove: string) => {
+    if (!db) return;
+    const database = db;
+
+    const anonymize = <T extends { authorId?: string; authorName: string }>(items: T[]): T[] =>
+      items.map((item): T => {
+        if (item.authorId !== uidToRemove) return item;
+        const clean = { ...item, authorName: "Conta excluída" };
+        delete clean.authorId;
+        return clean;
+      });
+
+    const venuesSnap = await getDocs(collection(database, "venues"));
+    const venuesBatch = writeBatch(database);
+    const storageDeletes: Promise<void>[] = [];
+    let hasVenueWrites = false;
+
+    venuesSnap.docs.forEach((venueDoc) => {
+      const venue = venueDoc.data() as Venue;
+      const ownPhotos = (venue.photos ?? []).filter((p) => p.authorId === uidToRemove);
+      const hasOwnHype = (venue.hypeReports ?? []).some((r) => r.authorId === uidToRemove);
+      const hasOwnReview = (venue.reviews ?? []).some((r) => r.authorId === uidToRemove);
+      if (ownPhotos.length === 0 && !hasOwnHype && !hasOwnReview) return;
+
+      hasVenueWrites = true;
+      venuesBatch.update(venueDoc.ref, {
+        ...(ownPhotos.length > 0
+          ? { photos: (venue.photos ?? []).filter((p) => p.authorId !== uidToRemove) }
+          : {}),
+        ...(hasOwnHype ? { hypeReports: anonymize(venue.hypeReports ?? []) } : {}),
+        ...(hasOwnReview ? { reviews: anonymize(venue.reviews ?? []) } : {}),
+      });
+      if (storage) {
+        const bucket = storage;
+        ownPhotos.forEach((photo) => {
+          storageDeletes.push(deleteObject(ref(bucket, photo.url)).catch(() => {}));
+        });
+      }
+    });
+
+    if (hasVenueWrites) await venuesBatch.commit().catch(() => {});
+    await Promise.all(storageDeletes);
+
+    const [followingSnap, followersSnap] = await Promise.all([
+      getDocs(collection(database, "users", uidToRemove, "following")),
+      getDocs(collection(database, "users", uidToRemove, "followers")),
+    ]);
+    const socialBatch = writeBatch(database);
+    followingSnap.docs.forEach((followDoc) => {
+      socialBatch.delete(followDoc.ref);
+      socialBatch.delete(doc(database, "users", followDoc.id, "followers", uidToRemove));
+    });
+    followersSnap.docs.forEach((followerDoc) => {
+      socialBatch.delete(followerDoc.ref);
+      socialBatch.delete(doc(database, "users", followerDoc.id, "following", uidToRemove));
+    });
+    await socialBatch.commit().catch(() => {});
+  };
+
+  // Apaga a conta de autenticação só depois da limpeza acima (que
+  // exige sessão válida) e do login do Google, se houver. Se o
+  // Firebase recusar por login antigo (auth/requires-recent-login), os
+  // dados já anonimizados/apagados não voltam — mas a conta em si
+  // sobrevive e a pessoa pode entrar nela de novo e tentar de novo;
+  // aceitável, já que a alternativa (limpar depois de apagar a conta)
+  // não teria mais sessão autenticada pra fazer as escritas.
   const deleteAccount = async () => {
     if (!auth?.currentUser) return;
     const uidToRemove = auth.currentUser.uid;
+    await cleanupUserData(uidToRemove);
     if (isGoogleSignInConfigured) {
       const { GoogleSignin } = await import("@react-native-google-signin/google-signin");
       await GoogleSignin.signOut().catch(() => {});

@@ -84,6 +84,10 @@ export function VenuePhotosSection({ venueId, photos }: VenuePhotosSectionProps)
       <Text style={styles.sectionTitle}>
         Fotos {photos.length > 0 ? `(${photos.length})` : ""}
       </Text>
+      <Text style={styles.sectionHint}>
+        Ficam públicas pra qualquer usuário logado — evite fotos com pessoas identificáveis sem o
+        consentimento delas ou com documentos/dados pessoais visíveis.
+      </Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         <Pressable
@@ -181,6 +185,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fontFamily.display,
     color: colors.text,
+  },
+  sectionHint: {
+    fontSize: 11.5,
+    fontFamily: fontFamily.body,
+    color: colors.textFaint,
+    lineHeight: 16,
   },
   row: {
     gap: 10,

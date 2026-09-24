@@ -4,6 +4,7 @@ import { useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -17,11 +18,39 @@ import {
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { GoogleLogo } from "@/components/GoogleLogo";
 import { PressableScale } from "@/components/PressableScale";
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/constants/legal";
 import { isGoogleSignInConfigured, useAuth } from "@/context/AuthContext";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import { haptics } from "@/utils/haptics";
 import { getModerationIssue, moderationMessage } from "@/utils/moderation";
+
+// Checkbox de consentimento (idade mínima, termos/privacidade) — só no
+// cadastro. Feito aqui em vez de um componente novo porque só é usado
+// nesta tela.
+function ConsentCheckbox({
+  checked,
+  onToggle,
+  children,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Pressable
+      onPress={onToggle}
+      style={styles.consentRow}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+    >
+      <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+        {checked && <Feather name="check" size={12} color={colors.background} />}
+      </View>
+      <Text style={styles.consentText}>{children}</Text>
+    </Pressable>
+  );
+}
 
 type Mode = "login" | "signup";
 
@@ -90,6 +119,10 @@ export function AuthScreen() {
   const [error, setError] = useState("");
   const [isSubmitting, setSubmitting] = useState(false);
   const [isResetSent, setResetSent] = useState(false);
+  // Só valem pra criar conta nova — quem já tem conta já aceitou isso
+  // no próprio cadastro.
+  const [confirmedAge, setConfirmedAge] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
@@ -118,6 +151,16 @@ export function AuthScreen() {
     if (nameIssue) {
       haptics.warning();
       setError(moderationMessage(nameIssue, "do nome"));
+      return;
+    }
+    if (isSignup && !confirmedAge) {
+      haptics.warning();
+      setError("Confirma que você tem 18 anos ou mais pra continuar.");
+      return;
+    }
+    if (isSignup && !acceptedTerms) {
+      haptics.warning();
+      setError("Aceita os Termos de Uso e a Política de Privacidade pra continuar.");
       return;
     }
     setSubmitting(true);
@@ -264,6 +307,25 @@ export function AuthScreen() {
 
           {isSignup && !error && <Text style={styles.helper}>Use pelo menos 6 caracteres na senha.</Text>}
 
+          {isSignup && (
+            <View style={styles.consentGroup}>
+              <ConsentCheckbox checked={confirmedAge} onToggle={() => setConfirmedAge((v) => !v)}>
+                Tenho 18 anos ou mais.
+              </ConsentCheckbox>
+              <ConsentCheckbox checked={acceptedTerms} onToggle={() => setAcceptedTerms((v) => !v)}>
+                Li e aceito os{" "}
+                <Text style={styles.consentLink} onPress={() => Linking.openURL(TERMS_OF_SERVICE_URL)}>
+                  Termos de Uso
+                </Text>{" "}
+                e a{" "}
+                <Text style={styles.consentLink} onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
+                  Política de Privacidade
+                </Text>
+                .
+              </ConsentCheckbox>
+            </View>
+          )}
+
           {error.length > 0 && (
             <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
               {error}
@@ -397,6 +459,40 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 12,
+  },
+  consentGroup: {
+    gap: 8,
+    marginTop: 2,
+  },
+  consentRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  consentText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontFamily: fontFamily.body,
+    color: colors.textMuted,
+    lineHeight: 18,
+  },
+  consentLink: {
+    color: colors.accent,
+    textDecorationLine: "underline",
   },
   inputRow: {
     flexDirection: "row",
