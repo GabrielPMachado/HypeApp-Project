@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { EditProfileModal } from "@/components/EditProfileModal";
 import { FeedbackModal } from "@/components/FeedbackModal";
+import { FollowStats } from "@/components/FollowStats";
 import {
   ActivityList,
   BadgeGrid,
@@ -17,9 +18,11 @@ import {
 } from "@/components/ProfileParts";
 import { RecapModal } from "@/components/RecapModal";
 import { StoreModal } from "@/components/StoreModal";
+import { UserListModal } from "@/components/UserListModal";
 import { useAuth } from "@/context/AuthContext";
 import { useVenues } from "@/context/VenuesContext";
 import { getFrameColor, getItem } from "@/data/storeCatalog";
+import { isFirebaseConfigured } from "@/services/firebase";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import {
@@ -81,6 +84,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
   const [isEditing, setEditing] = useState(false);
   const [isStoreOpen, setStoreOpen] = useState(false);
   const [isRecapOpen, setRecapOpen] = useState(false);
+  const [userListRelation, setUserListRelation] = useState<"following" | "followers" | null>(null);
   const [isConfirmingDelete, setConfirmingDelete] = useState(false);
   const [isDeleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -173,6 +177,16 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
             onPressEmptyBio={() => setEditing(true)}
           />
 
+          {isFirebaseConfigured && user && (
+            <View style={styles.socialRow}>
+              <FollowStats
+                uid={user.uid}
+                onPressFollowing={() => setUserListRelation("following")}
+                onPressFollowers={() => setUserListRelation("followers")}
+              />
+            </View>
+          )}
+
           <LevelCard info={info} points={points} coins={coins} onPressStore={() => setStoreOpen(true)} />
 
           <StatsRow
@@ -237,6 +251,16 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
         <StoreModal visible={isStoreOpen} onClose={() => setStoreOpen(false)} />
         <RecapModal visible={isRecapOpen} onClose={() => setRecapOpen(false)} />
 
+        {user && userListRelation && (
+          <UserListModal
+            visible
+            uid={user.uid}
+            relation={userListRelation}
+            title={userListRelation === "following" ? "Seguindo" : "Seguidores"}
+            onClose={() => setUserListRelation(null)}
+          />
+        )}
+
         <ConfirmModal
           visible={isConfirmingDelete}
           icon="trash-2"
@@ -288,6 +312,9 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
     gap: 22,
+  },
+  socialRow: {
+    flexDirection: "row",
   },
   recapButton: {
     flexDirection: "row",

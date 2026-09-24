@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { FollowButton } from "@/components/FollowButton";
+import { FollowStats } from "@/components/FollowStats";
 import {
   BadgeGrid,
   LevelCard,
@@ -13,6 +15,7 @@ import {
   StatsRow,
 } from "@/components/ProfileParts";
 import { ReportModal } from "@/components/ReportModal";
+import { UserListModal } from "@/components/UserListModal";
 import { useVenues } from "@/context/VenuesContext";
 import { getFrameColor, getItem } from "@/data/storeCatalog";
 import { db, isFirebaseConfigured } from "@/services/firebase";
@@ -52,6 +55,7 @@ export function PublicProfileModal({ uid, visible, onClose }: PublicProfileModal
   const [isLoading, setLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [isReportOpen, setReportOpen] = useState(false);
+  const [userListRelation, setUserListRelation] = useState<"following" | "followers" | null>(null);
 
   useEffect(() => {
     if (!visible || !uid || !db) return;
@@ -155,6 +159,17 @@ export function PublicProfileModal({ uid, visible, onClose }: PublicProfileModal
               level={info.level}
             />
 
+            {isFirebaseConfigured && uid && (
+              <View style={styles.socialRow}>
+                <FollowStats
+                  uid={uid}
+                  onPressFollowing={() => setUserListRelation("following")}
+                  onPressFollowers={() => setUserListRelation("followers")}
+                />
+                <FollowButton targetUid={uid} />
+              </View>
+            )}
+
             <LevelCard info={info} points={points} />
 
             <StatsRow
@@ -177,6 +192,16 @@ export function PublicProfileModal({ uid, visible, onClose }: PublicProfileModal
             onClose={() => setReportOpen(false)}
           />
         )}
+
+        {uid && userListRelation && (
+          <UserListModal
+            visible
+            uid={uid}
+            relation={userListRelation}
+            title={userListRelation === "following" ? "Seguindo" : "Seguidores"}
+            onClose={() => setUserListRelation(null)}
+          />
+        )}
       </SafeAreaView>
     </Modal>
   );
@@ -186,6 +211,11 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  socialRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   topBar: {
     flexDirection: "row",

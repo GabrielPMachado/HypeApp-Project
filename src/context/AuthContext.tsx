@@ -21,6 +21,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -75,6 +76,9 @@ interface AuthContextValue {
   // lança auth/requires-recent-login e quem chama pede pra entrar de
   // novo antes de tentar outra vez.
   deleteAccount: () => Promise<void>;
+  // Grafo social (ver comentário em followUser, mais abaixo no provider).
+  followUser: (targetUid: string) => Promise<void>;
+  unfollowUser: (targetUid: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -270,6 +274,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  // Grafo social em duas subcoleções espelhadas (fan-out na escrita, não
+  // na leitura): users/{eu}/following/{alvo} E users/{alvo}/followers/{eu}
+  // juntos num batch — sem isso, ver "quem me segue" exigiria varrer o
+  // "following" de todo mundo. As duas entram/saem sempre juntas.
+  //
+  // ATENÇÃO: espelhar nas regras do Firestore —
+  //   match /users/{uid}/following/{targetUid} {
+  //     allow write: if request.auth != null && request.auth.uid == uid;
+  //   }
+  //   match /users/{uid}/followers/{followerUid} {
+  //     allow write: if request.auth != null && request.auth.uid == followerUid;
+  //   }
+  const followUser = async (targetUid: string) => {
+    if (!db || !uid || uid === targetUid) return;
+    const batch = writeBatch(db);
+    batch.set(doc(db, "users", uid, "following", targetUid), { createdAt: serverTimestamp() });
+    batch.set(doc(db, "users", targetUid, "followers", uid), { createdAt: serverTimestamp() });
+    await batch.commit();
+  };
+
+  const unfollowUser = async (targetUid: string) => {
+    if (!db || !uid) return;
+    const batch = writeBatch(db);
+    batch.delete(doc(db, "users", uid, "following", targetUid));
+    batch.delete(doc(db, "users", targetUid, "followers", uid));
+    await batch.commit();
+  };
+
   const value = useMemo(
     () => ({
       user,
@@ -285,6 +317,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       resetPassword,
       deleteAccount,
+      followUser,
+      unfollowUser,
     }),
     [user, profile, isAuthLoading]
   );
