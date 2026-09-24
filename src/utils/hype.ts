@@ -4,6 +4,7 @@ import type { HypeLevel, HypeReport, Venue } from "@/types/venue";
 export const HYPE_HOLD_MINUTES = 30; // um report vale integralmente por esse tempo
 export const HYPE_DECAY_STEP_MINUTES = 30; // depois disso, perde HYPE_DECAY_POINTS a cada passo desses
 export const HYPE_DECAY_POINTS = 1;
+export const HYPE_ZERO_AFTER_MINUTES = 120; // sem nenhum report por esse tempo, a nota zera de vez
 export const HYPE_RESET_HOUR = 12; // o "dia de hype" vai de 12:00 a 12:00 (hora local do aparelho)
 
 export interface HypeStatus {
@@ -11,7 +12,7 @@ export interface HypeStatus {
   level: HypeLevel; // versão categórica de "score", só pro selo colorido
   sampleSize: number; // reports que sustentam a nota (1 quando já está perdendo valor)
   minutesSinceLastReport: number;
-  pointsLost: number; // 0 enquanto o report mais recente ainda está na retenção
+  pointsLost: number; // 0 enquanto o report mais recente ainda está na retenção; toda a nota se zerou
   lastReportAt: string;
 }
 
@@ -28,9 +29,10 @@ export function hypeDayStart(now: Date = new Date()): Date {
 //  - enquanto houver report nos últimos 30 min, é a média deles (o hype é
 //    "mantido" nesse período);
 //  - passados os 30 min sem report novo, parte da nota do último report e
-//    perde 1 ponto a cada 30 min (nunca abaixo de 0). Um report novo
-//    "recarrega" o bar, e reports antigos já enfraquecidos não puxam a
-//    média de um report fresco pra baixo.
+//    perde 1 ponto a cada 30 min (nunca abaixo de 0), e com 2h sem nenhum
+//    report a nota zera de vez. Um report novo "recarrega" o bar, e
+//    reports antigos já enfraquecidos não puxam a média de um report
+//    fresco pra baixo.
 // Só entram reports desde o último 12:00 (ver hypeDayStart).
 export function getCurrentHypeStatus(reports: HypeReport[]): HypeStatus | null {
   const now = Date.now();
@@ -58,7 +60,10 @@ export function getCurrentHypeStatus(reports: HypeReport[]): HypeStatus | null {
 
   const steps =
     Math.floor((ageMinutes(latest) - HYPE_HOLD_MINUTES) / HYPE_DECAY_STEP_MINUTES) + 1;
-  const score = Math.max(0, latest.score - steps * HYPE_DECAY_POINTS);
+  const score =
+    ageMinutes(latest) >= HYPE_ZERO_AFTER_MINUTES
+      ? 0
+      : Math.max(0, latest.score - steps * HYPE_DECAY_POINTS);
   return {
     score,
     level: scoreToLevel(score),

@@ -60,6 +60,23 @@ describe("getCurrentHypeStatus", () => {
     expect(status!.minutesSinceLastReport).toBe(minutes);
   });
 
+  it.each([
+    [119, 8, 5],
+    [120, 8, 0],
+    [121, 10, 0],
+    [250, 9, 0],
+  ])("report de %smin com nota %s: com 2h sem hype a nota zera (esperado %s)", (minutes, score, expected) => {
+    const status = getCurrentHypeStatus([report(minutes, score)]);
+    expect(status!.score).toBe(expected);
+    expect(status!.level).toBe(expected === 0 ? "low" : status!.level);
+  });
+
+  it("um report novo depois das 2h reativa o bar (o antigo já zerado não pesa)", () => {
+    const status = getCurrentHypeStatus([report(5, 9), report(150, 10)]);
+    expect(status!.score).toBe(9);
+    expect(status!.pointsLost).toBe(0);
+  });
+
   it("nunca fica abaixo de 0", () => {
     const status = getCurrentHypeStatus([report(300, 5)]);
     expect(status!.score).toBe(0);
