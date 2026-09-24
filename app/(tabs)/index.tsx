@@ -10,6 +10,7 @@ import { VenueCard } from "@/components/VenueCard";
 import { VenueDetailSheet } from "@/components/VenueDetailSheet";
 import { useLocation } from "@/context/LocationContext";
 import { useVenues } from "@/context/VenuesContext";
+import { isFirebaseConfigured } from "@/services/firebase";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import { venuesWithin } from "@/utils/geo";
@@ -17,10 +18,29 @@ import { rankingScore } from "@/utils/hype";
 
 export default function ListaScreen() {
   const { venues, isLoading, loadError, retryLoad } = useVenues();
-  const { location, locations, setLocationId } = useLocation();
+  const { location, locations, setLocationId, requestExpansion } = useLocation();
   const [isPickerOpen, setPickerOpen] = useState(false);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [isSheetOpen, setSheetOpen] = useState(false);
+  const [isRequesting, setRequesting] = useState(false);
+  const [hasRequested, setHasRequested] = useState(false);
+
+  // Sinal de demanda pra expansão (ver requestExpansion em
+  // LocationContext.tsx) — zera ao trocar de região, senão o "já
+  // avisamos" ficaria colado mesmo depois de buscar outro lugar.
+  useEffect(() => {
+    setHasRequested(false);
+  }, [location.id]);
+
+  const handleRequestExpansion = async () => {
+    setRequesting(true);
+    try {
+      await requestExpansion(location);
+      setHasRequested(true);
+    } finally {
+      setRequesting(false);
+    }
+  };
 
   // getCurrentHypeStatus depende do relógio (a janela de 30min/1h/1h30
   // progressiva e o "há quanto tempo" do último report) — sem re-render,
@@ -88,6 +108,25 @@ export default function ListaScreen() {
           >
             <Text style={styles.emptyButtonText}>Ver Cidade Baixa</Text>
           </Pressable>
+
+          {isFirebaseConfigured && (
+            <Pressable
+              onPress={handleRequestExpansion}
+              disabled={isRequesting || hasRequested}
+              accessibilityRole="button"
+              accessibilityLabel="Avisar que quero o HypeApp nessa região"
+              style={styles.expansionButton}
+            >
+              <Feather
+                name={hasRequested ? "check" : "bell"}
+                size={13}
+                color={colors.textMuted}
+              />
+              <Text style={styles.expansionButtonText}>
+                {hasRequested ? "Já avisamos o time!" : "Quero o HypeApp aqui"}
+              </Text>
+            </Pressable>
+          )}
         </View>
       ) : (
         <FlatList
@@ -166,5 +205,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.bodySemiBold,
     color: colors.accent,
+  },
+  expansionButton: {
+    marginTop: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  expansionButtonText: {
+    fontSize: 12,
+    fontFamily: fontFamily.body,
+    color: colors.textMuted,
+    textDecorationLine: "underline",
   },
 });
