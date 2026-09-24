@@ -11,4 +11,5 @@ export const VENUE_LOGOS: Record<string, ImageSourcePropType> = {
   "cb-4": require("../../assets/venue-logos/cb-4-sgt-peppers.jpg"),
   "cb-5": require("../../assets/venue-logos/cb-5-capone-drinkeria.webp"),
   "cb-6": require("../../assets/venue-logos/cb-6-mambembe.jpg"),
+  "bf-6": require("../../assets/venue-logos/bf-6-apricot-bistro.jpg"),
 };
