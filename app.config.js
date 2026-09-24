@@ -60,6 +60,16 @@ module.exports = {
       ],
       "expo-status-bar",
       "@react-native-google-signin/google-signin",
+      // Check-in por proximidade (ver utils/checkin.ts): só localização
+      // "em uso" (nunca em segundo plano), pedida na hora de avaliar um
+      // bar, pra confirmar que a pessoa está de verdade lá.
+      [
+        "expo-location",
+        {
+          locationWhenInUsePermission:
+            "O HypeApp usa sua localização só na hora de avaliar um bar, pra confirmar que você está lá.",
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,

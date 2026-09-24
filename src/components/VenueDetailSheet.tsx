@@ -6,9 +6,10 @@ import {
 } from "@gorhom/bottom-sheet";
 import { Feather } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, Text, View, StyleSheet } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { EvaluationModal } from "@/components/EvaluationModal";
+import { FeedbackModal } from "@/components/FeedbackModal";
 import { HypeBadge } from "@/components/HypeBadge";
 import { HypeReportModal } from "@/components/HypeReportModal";
 import { PremiumTeaser } from "@/components/PremiumTeaser";
@@ -23,6 +24,7 @@ import { useVenues } from "@/context/VenuesContext";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { Venue } from "@/types/venue";
+import { checkInFailureMessage, verifyCheckIn } from "@/utils/checkin";
 import { formatHypeWindow, getCurrentHypeStatus } from "@/utils/hype";
 import { getAggregateRating, getOverallRating } from "@/utils/rating";
 import { getAggregateVibeTags } from "@/utils/vibeTags";
@@ -46,6 +48,8 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
   const { addHypeReport, addReview } = useVenues();
   const [isHypeModalOpen, setHypeModalOpen] = useState(false);
   const [isEvaluationOpen, setEvaluationOpen] = useState(false);
+  const [isCheckingIn, setCheckingIn] = useState(false);
+  const [checkInError, setCheckInError] = useState("");
   const sheetRef = useRef<BottomSheetModal>(null);
   // Chamar dismiss() numa folha que a PRÓPRIA biblioteca já fechou
   // sozinha (gesto de arrastar ou toque no backdrop) é o que deixava
@@ -138,6 +142,24 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
   const hypeStatus = getCurrentHypeStatus(venue.hypeReports);
   const aggregateRating = getAggregateRating(venue.reviews);
   const vibeTags = getAggregateVibeTags(venue);
+
+  // Check-in por proximidade (ver utils/checkin.ts): confirma que a
+  // pessoa está de verdade perto do bar antes de abrir o modal de
+  // avaliação — o rate-limit do Firestore já limita a FREQUÊNCIA, isso
+  // aqui garante PRESENÇA, os dois problemas são diferentes.
+  const handleRequestEvaluation = async (kind: "hype" | "review") => {
+    setCheckingIn(true);
+    const result = await verifyCheckIn(venue);
+    setCheckingIn(false);
+
+    if (!result.ok) {
+      setCheckInError(checkInFailureMessage(result.reason));
+      return;
+    }
+
+    if (kind === "hype") setHypeModalOpen(true);
+    else setEvaluationOpen(true);
+  };
 
   return (
     <>
@@ -238,21 +260,27 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
 
           <View style={styles.evaluateRow}>
             <Pressable
-              onPress={() => setHypeModalOpen(true)}
+              onPress={() => handleRequestEvaluation("hype")}
+              disabled={isCheckingIn}
               accessibilityRole="button"
               accessibilityLabel="Hype agora"
-              accessibilityHint="Diz como está o movimento do local neste momento"
+              accessibilityHint="Confirma que você está no local e diz como está o movimento agora"
               style={({ pressed }) => [styles.hypeButton, pressed && styles.buttonPressed]}
             >
-              <Feather name="zap" size={15} color={colors.background} />
+              {isCheckingIn ? (
+                <ActivityIndicator size="small" color={colors.background} />
+              ) : (
+                <Feather name="zap" size={15} color={colors.background} />
+              )}
               <Text style={styles.hypeButtonText}>Hype agora</Text>
             </Pressable>
 
             <Pressable
-              onPress={() => setEvaluationOpen(true)}
+              onPress={() => handleRequestEvaluation("review")}
+              disabled={isCheckingIn}
               accessibilityRole="button"
               accessibilityLabel="Avaliação completa"
-              accessibilityHint="Dá notas de música, preço, atendimento e ambiente"
+              accessibilityHint="Confirma que você está no local e dá notas de música, preço, atendimento e ambiente"
               style={({ pressed }) => [styles.fixedButton, pressed && styles.buttonPressed]}
             >
               <Feather name="edit-3" size={15} color={colors.text} />
@@ -325,6 +353,14 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
           addReview(venue.id, { rating, vibeTags: selectedTags, comment });
           setEvaluationOpen(false);
         }}
+      />
+
+      <FeedbackModal
+        visible={checkInError !== ""}
+        icon="map-pin"
+        title="Não deu pra confirmar presença"
+        message={checkInError}
+        onClose={() => setCheckInError("")}
       />
     </>
   );
