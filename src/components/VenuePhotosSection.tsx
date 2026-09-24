@@ -23,6 +23,11 @@ import { formatRelativeTime } from "@/utils/time";
 
 const THUMB_SIZE = 76;
 
+// Desligado enquanto o Firebase Storage não estiver ativo no projeto (exige
+// o plano Blaze) e as regras de venue-photos publicadas — sem isso o envio
+// sempre falha. Ligar de novo é só trocar pra true.
+const PHOTOS_ENABLED = false;
+
 interface VenuePhotosSectionProps {
   venueId: string;
   photos: VenuePhoto[];
@@ -39,7 +44,7 @@ export function VenuePhotosSection({ venueId, photos }: VenuePhotosSectionProps)
   const [isDeleting, setDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  if (!isFirebaseConfigured) return null;
+  if (!PHOTOS_ENABLED || !isFirebaseConfigured) return null;
 
   const handleAdd = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
