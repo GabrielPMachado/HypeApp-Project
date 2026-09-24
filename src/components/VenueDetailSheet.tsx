@@ -195,6 +195,7 @@ export function VenueDetailSheet({ visible, venue, onClose }: VenueDetailSheetPr
               <View style={styles.avatarWrap}>
                 <VenueAvatar
                   name={venue.name}
+                  venueId={venue.id}
                   logoUrl={venue.logoUrl}
                   vibeTag={venue.vibeTags[0]}
                   size={56}

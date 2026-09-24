@@ -218,6 +218,34 @@ export const mockVenues: Venue[] = [
     ],
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: "cb-6",
+    name: "Mambembe",
+    address: "Rua General Lima e Silva, 594 — Cidade Baixa",
+    priceRange: "$$",
+    // Horário não confirmado numa fonte oficial — ajustar se souber o real.
+    openingHours: "Ter a Dom, 17h às 00h",
+    latitude: -30.0407 + 0.0012,
+    longitude: -51.2247 + 0.0022,
+    hypeScore: 7.2,
+    vibeTags: ["para-conversar"],
+    hypeReports: [
+      hr(14, 7.2, "Camila R."),
+      hr(40, 6.5, "Bruno F."),
+      hr(9, 8, "Aline P."),
+      hr(3, 5.8, "Diego M."),
+    ],
+    reviews: [
+      rv(
+        60,
+        "Camila R.",
+        { music: 3.5, price: 4, service: 4, ambiance: 4 },
+        ["para-conversar"],
+        "Growler station ótima, cerveja artesanal sempre bem gelada."
+      ),
+    ],
+    updatedAt: new Date().toISOString(),
+  },
 
   // ── Bom Fim, Porto Alegre ─────────────────────────────────────────
   {

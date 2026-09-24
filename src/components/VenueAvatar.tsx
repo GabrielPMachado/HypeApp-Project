@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { Image, StyleSheet, Text, View } from "react-native";
 
 import { VIBE_TAG_ICONS } from "@/constants/vibeTags";
+import { VENUE_LOGOS } from "@/data/venueLogos";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { VibeTag } from "@/types/venue";
@@ -28,24 +29,32 @@ function getInitials(name: string): string {
 
 interface VenueAvatarProps {
   name: string;
+  venueId?: string;
   logoUrl?: string;
   vibeTag?: VibeTag;
   size?: number;
 }
 
-// Mostra a foto real do bar quando existir (logoUrl) — hoje nenhum local
-// tem, porque isso exigiria upload próprio ou uma API com licença pra
-// servir fotos (ex: Google Places); não podemos usar fotos/logos reais
-// de terceiros sem autorização. Enquanto isso, cai numa "marca" gerada:
+// Mostra a logo real do bar quando existir: primeiro o logoUrl do
+// Firestore (upload do próprio dono pelo painel do parceiro), senão um
+// asset local em VENUE_LOGOS pros poucos bares de quem já temos
+// autorização direta pra usar a marca — não podemos usar logo de
+// terceiro sem isso. Sem nenhum dos dois, cai numa "marca" gerada:
 // ícone da vibe do local (ver VIBE_TAG_ICONS) como marca d'água atrás
 // das iniciais — formato retangular (cantos discretos, não um quadrado
 // bem arredondado). O destaque de "líder do ranking" fica por conta do
 // card inteiro (ver NeonBorder em VenueCard), não do avatar.
-export function VenueAvatar({ name, logoUrl, vibeTag, size = 44 }: VenueAvatarProps) {
+export function VenueAvatar({ name, venueId, logoUrl, vibeTag, size = 44 }: VenueAvatarProps) {
   const dimensionStyle = { width: size, height: size, borderRadius: size * 0.18 };
+  const localLogo = venueId ? VENUE_LOGOS[venueId] : undefined;
 
-  if (logoUrl) {
-    return <Image source={{ uri: logoUrl }} style={[styles.image, dimensionStyle]} />;
+  if (logoUrl || localLogo) {
+    return (
+      <Image
+        source={logoUrl ? { uri: logoUrl } : localLogo}
+        style={[styles.image, dimensionStyle]}
+      />
+    );
   }
 
   const tone = AVATAR_PALETTE[hashString(name) % AVATAR_PALETTE.length];

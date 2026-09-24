@@ -53,6 +53,7 @@ export function VenueCard({ venue, rank, onPress }: VenueCardProps) {
       <View style={styles.headerRow}>
         <VenueAvatar
           name={venue.name}
+          venueId={venue.id}
           logoUrl={venue.logoUrl}
           vibeTag={venue.vibeTags[0]}
           size={52}
