@@ -52,6 +52,7 @@ export function VenueAvatar({ name, venueId, logoUrl, vibeTag, size = 44 }: Venu
     return (
       <Image
         source={logoUrl ? { uri: logoUrl } : localLogo}
+        resizeMode="contain"
         style={[styles.image, dimensionStyle]}
       />
     );
