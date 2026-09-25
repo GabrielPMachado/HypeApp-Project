@@ -8,9 +8,9 @@ import { softDiscTexture } from "@/three/kit";
 const CAMERA: Record<AvatarView, { target: [number, number, number]; distance: number; pitch: number }> = {
   full: { target: [0, 0.92, 0], distance: 3.95, pitch: 0.05 },
   bust: { target: [0, 1.38, 0], distance: 2.45, pitch: 0.02 },
-  top: { target: [0, 0.98, 0.02], distance: 2.35, pitch: 0.05 },
-  bottom: { target: [0, 0.4, 0.02], distance: 2.7, pitch: 0.08 },
-  shoes: { target: [0, 0.14, 0.05], distance: 2.0, pitch: 0.28 },
+  top: { target: [0, 0.9, 0.02], distance: 2.1, pitch: 0.05 },
+  bottom: { target: [0, 0.36, 0.02], distance: 2.05, pitch: 0.06 },
+  shoes: { target: [0, 0.11, 0.05], distance: 1.5, pitch: 0.3 },
 };
 
 const FOV = 28;
