@@ -1,6 +1,8 @@
+import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
   BufferGeometry,
   CatmullRomCurve3,
+  Color,
   DataTexture,
   DoubleSide,
   Float32BufferAttribute,
@@ -67,11 +69,21 @@ export class Kit {
 
   // Pele: um toque de luz própria clareia as sombras (parece pele de verdade,
   // não plástico com sombra preta).
-  skin(color: string): MeshStandardMaterial {
+  skin(color: string): MeshPhysicalMaterial {
     const key = `k|${color}`;
-    let material = this.materials.get(key) as MeshStandardMaterial | undefined;
+    let material = this.materials.get(key) as MeshPhysicalMaterial | undefined;
     if (!material) {
-      material = new MeshStandardMaterial({ color, roughness: 0.62, metalness: 0, emissive: color, emissiveIntensity: 0.07 });
+      // sheen: brilho macio nas bordas (pele com "veludo", não plástico)
+      material = new MeshPhysicalMaterial({
+        color,
+        roughness: 0.62,
+        metalness: 0,
+        emissive: color,
+        emissiveIntensity: 0.07,
+        sheen: 0.7,
+        sheenRoughness: 0.55,
+        sheenColor: new Color(color).lerp(new Color("#FFE3D0"), 0.45),
+      });
       this.materials.set(key, material);
     }
     return material;
@@ -163,14 +175,37 @@ export class Kit {
 
 // Sólido de revolução (torso): raio em função de u (0 embaixo, 1 em cima),
 // fechado no topo e na base.
-export function revolve(radius: (u: number) => number, height: number, steps = 48, segments = 44): LatheGeometry {
+export function revolve(radius: (u: number) => number, height: number, steps = 48, segments = 44): BufferGeometry {
   const points: Vector2[] = [new Vector2(0.0001, 0)];
   for (let i = 0; i <= steps; i++) {
     const u = i / steps;
     points.push(new Vector2(Math.max(0.0001, radius(u)), u * height));
   }
   points.push(new Vector2(0.0001, height));
-  return new LatheGeometry(points, segments);
+  // Une os vértices da costura pra a sombra não ter emenda.
+  const lathe = new LatheGeometry(points, segments);
+  lathe.deleteAttribute("uv");
+  lathe.deleteAttribute("normal");
+  const merged = mergeVertices(lathe, 1e-5);
+  merged.computeVertexNormals();
+  return merged;
+}
+
+// Dobras suaves no tecido: desloca os vértices ao longo da normal com duas
+// ondas que se cruzam (leve o bastante pra não virar textura de pano amassado).
+export function wrinkle(geometry: BufferGeometry, amplitude: number, seed = 0, frequency = 34): BufferGeometry {
+  const position = geometry.getAttribute("position");
+  const normal = geometry.getAttribute("normal");
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    const y = position.getY(i);
+    const z = position.getZ(i);
+    const angle = Math.atan2(z, x);
+    const d = amplitude * (0.55 * Math.sin(y * frequency + angle * 2 + seed) + 0.45 * Math.sin(y * frequency * 0.43 - angle * 3 + seed * 2.1));
+    position.setXYZ(i, x + normal.getX(i) * d, y + normal.getY(i) * d, z + normal.getZ(i) * d);
+  }
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
 export const roundEnd = (u: number, from: number) =>
@@ -210,6 +245,22 @@ export function tube(
       const a = i * (radial + 1) + j;
       const b = a + radial + 1;
       indices.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+  }
+  // O sentido de giro dos triângulos depende da orientação da curva (um braço
+  // espelhado sai do avesso e só se veria o lado de dentro): confere se a
+  // primeira normal aponta pra fora do eixo e, se não, inverte a ordem.
+  const center = curve.getPointAt(t0);
+  const first = new Vector3(positions[0], positions[1], positions[2]).sub(center);
+  const a = new Vector3(positions[0], positions[1], positions[2]);
+  const b1 = new Vector3(positions[3 * (radial + 1)], positions[3 * (radial + 1) + 1], positions[3 * (radial + 1) + 2]);
+  const c1 = new Vector3(positions[3], positions[4], positions[5]);
+  const faceNormal = b1.sub(a).cross(c1.sub(a));
+  if (faceNormal.dot(first) < 0) {
+    for (let i = 0; i < indices.length; i += 3) {
+      const tmp = indices[i + 1];
+      indices[i + 1] = indices[i + 2];
+      indices[i + 2] = tmp;
     }
   }
   const geometry = new BufferGeometry();

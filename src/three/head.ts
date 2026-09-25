@@ -104,6 +104,16 @@ export function buildHead(kit: Kit, colors: FaceColors, mood: string) {
 
   buildNose(kit, colors.skin);
 
+  // Sombras de oclusão fingidas: dão profundidade sem custo (soquetes dos olhos,
+  // sob o lábio, e a sombra do queixo no pescoço).
+  const shadow = darken(colors.skin, 0.55);
+  for (const side of [-1, 1]) {
+    kit.mesh(stuck(kit, side * rad(24), rad(-4), 0.0015), new CircleGeometry(0.088, 32), kit.soft(shadow, 0.17));
+  }
+  kit.mesh(stuck(kit, 0, rad(-38), 0.002), new CircleGeometry(0.04, 24), kit.soft(shadow, 0.16));
+  const neckShadow = kit.mesh(kit.root, new CircleGeometry(0.085, 32), kit.soft("#000000", 0.28), 0, 1.15, 0.083);
+  neckShadow.scale.set(1.15, 0.9, 1);
+
   // Bochechas coradas
   const blush = rosy(colors.skin, 0.62);
   for (const side of [-1, 1]) {
