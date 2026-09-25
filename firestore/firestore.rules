@@ -1,0 +1,272 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function canSubmitHype(venueId) {
+      let rl = /databases/$(database)/documents/venues/$(venueId)/rateLimits/$(request.auth.uid);
+      return !exists(rl) || request.time > get(rl).data.lastReportAt + duration.value(30, 'm');
+    }
+
+    function canSubmitReview(venueId) {
+      let rl = /databases/$(database)/documents/venues/$(venueId)/reviewLimits/$(request.auth.uid);
+      return !exists(rl) || request.time > get(rl).data.lastReviewAt + duration.value(24, 'h');
+    }
+
+    function venueGained(venueId, field) {
+      let path = /databases/$(database)/documents/venues/$(venueId);
+      return getAfter(path).data[field].size() == get(path).data[field].size() + 1;
+    }
+
+    function appendedOne(oldList, newList) {
+      return newList.size() == oldList.size() + 1
+        && newList[0:oldList.size()] == oldList;
+    }
+
+    function validRating(v) {
+      return v is number && v >= 0 && v <= 5;
+    }
+
+    function validNewHype(venueId) {
+      let d = request.resource.data;
+      let mine = d.hypeReports[d.hypeReports.size() - 1];
+      return canSubmitHype(venueId)
+        && appendedOne(resource.data.get('hypeReports', []), d.hypeReports)
+        && mine.authorId == request.auth.uid
+        && mine.score is number && mine.score >= 0 && mine.score <= 10;
+    }
+
+    function validNewReview(venueId) {
+      let d = request.resource.data;
+      let mine = d.reviews[d.reviews.size() - 1];
+      return canSubmitReview(venueId)
+        && appendedOne(resource.data.get('reviews', []), d.reviews)
+        && mine.authorId == request.auth.uid
+        && validRating(mine.rating.music) && validRating(mine.rating.price)
+        && validRating(mine.rating['service']) && validRating(mine.rating.ambiance)
+        && isClean(mine.comment);
+    }
+
+    function hypeAward() {
+      let d = request.resource.data;
+      let changed = d.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['hypeReportCount', 'lastAwardVenueId'])
+        && changed.hasAny(['hypeReportCount'])
+        && d.hypeReportCount == resource.data.get('hypeReportCount', 0) + 1
+        && venueGained(d.lastAwardVenueId, 'hypeReports');
+    }
+
+    function reviewAward() {
+      let d = request.resource.data;
+      let changed = d.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['reviewCount', 'lastAwardVenueId'])
+        && changed.hasAny(['reviewCount'])
+        && d.reviewCount == resource.data.get('reviewCount', 0) + 1
+        && venueGained(d.lastAwardVenueId, 'reviews');
+    }
+
+    // ATENÇÃO: preços e itens gratuitos espelham src/data/storeCatalog.ts (um
+    // teste confere). Os ids av-* são da antiga loja de ícones: seguem aqui só
+    // por causa de compras antigas.
+    function itemPrice(id) {
+      return {
+        'av-fox': 80, 'av-owl': 80, 'av-ghost': 120, 'av-dj': 150, 'av-wolf': 150,
+        'av-alien': 250, 'av-dragon': 400, 'av-crown': 600,
+        'ey-violet': 60,
+        'hs-mohawk': 100, 'hs-quiff': 100,
+        'hc-blue': 60, 'hc-pink': 60, 'hc-purple': 80, 'hc-green': 80,
+        'tp-jacket': 80, 'tp-shirt': 120, 'tp-blazer': 250, 'tp-tux': 400,
+        'bt-cargo': 60, 'bt-slacks': 100,
+        'sh-red': 60, 'sh-dress': 100, 'sh-gold': 300,
+        'ac-glasses': 60, 'ac-shades': 80, 'ac-cap': 80, 'ac-headphones': 150,
+        'ac-fedora': 200, 'ac-crown': 600,
+        'fr-cyan': 100, 'fr-pink': 100, 'fr-purple': 150, 'fr-gold': 300, 'fr-rainbow': 500,
+        'ti-night': 60, 'ti-king': 200, 'ti-legend': 500
+      }.get(id, -1);
+    }
+
+    // Uma única expressão regular (e não uma lista de 44 ids varrida a cada peça):
+    // as regras têm limite de 1000 expressões por avaliação, e o look confere 9 peças.
+    function isFreeItem(id) {
+      return id.matches('av-(classic|cool|party|moon)|sk-[1-6]|ey-(brown|hazel|green|blue|gray)|hs-(short|long|curly|bun|buzz|bald)|hc-(black|brown|blond|red|gray)|tp-(tee-black|tee-white|tee-amber|hoodie-blue|puffer)|bt-(jeans|black|shorts)|sh-(boots|white|black)|ac-none|md-(smile|cool|wink|laugh)|fr-amber');
+    }
+
+    function canUseItem(d, id) {
+      return isFreeItem(id) || id in d.get('inventory', []);
+    }
+
+    function validCosmetic(d, key, prefix) {
+      return !(key in d)
+        || (d[key] is string && d[key][0:3] == prefix && canUseItem(d, d[key]));
+    }
+
+    function isClean(text) {
+      return !text.lower().matches('.*\\b(caralho|porra|merda|bosta|cacete|piroca|pau no|xoxota|buceta|pentelh|pelanca|arrombad|desgrac|desgraç|imbecil|idiota|retardad|babaca|otari|otári|escrot|fdp|vsf|vai se fuder|vai a merda|filho da puta|filha da puta|corn|puta|viad|bicha|sapatao|sapatão|traveco|macac|crioul|neguinh|favelad|https?://|www\\.|\\.com).*');    }
+
+    // Uma peça do personagem: prefixo do espaço certo e liberada pra quem a usa
+    // (gratuita ou comprada).
+    function validLookPart(d, key, prefix) {
+      return d.look[key] is string
+        && d.look[key][0:3] == prefix
+        && canUseItem(d, d.look[key]);
+    }
+
+    function validLook(d) {
+      return d.look is map
+        && d.look.keys().hasOnly(['skin', 'eyes', 'hair', 'hairColor', 'top', 'bottom', 'shoes', 'accessory', 'mood'])
+        && d.look.keys().hasAll(['skin', 'eyes', 'hair', 'hairColor', 'top', 'bottom', 'shoes', 'accessory', 'mood'])
+        && validLookPart(d, 'skin', 'sk-')
+        && validLookPart(d, 'eyes', 'ey-')
+        && validLookPart(d, 'hair', 'hs-')
+        && validLookPart(d, 'hairColor', 'hc-')
+        && validLookPart(d, 'top', 'tp-')
+        && validLookPart(d, 'bottom', 'bt-')
+        && validLookPart(d, 'shoes', 'sh-')
+        && validLookPart(d, 'accessory', 'ac-')
+        && validLookPart(d, 'mood', 'md-');
+    }
+
+    function profileEdit() {
+      let d = request.resource.data;
+      let changed = d.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['displayName', 'bio', 'favoriteVibes', 'avatarId', 'look', 'frameId', 'titleId', 'email'])
+        && (!changed.hasAny(['displayName'])
+          || (d.displayName is string && d.displayName.size() >= 2 && d.displayName.size() <= 30 && isClean(d.displayName)))
+        && (!changed.hasAny(['bio']) || (d.bio is string && d.bio.size() <= 140 && isClean(d.bio)))
+        && (!changed.hasAny(['favoriteVibes'])
+          || (d.favoriteVibes is list && d.favoriteVibes.size() <= 5
+            && d.favoriteVibes.hasOnly(['samba', 'rock', 'eletronica', 'para-dancar', 'para-conversar'])))
+        && (!changed.hasAny(['avatarId']) || validCosmetic(d, 'avatarId', 'av-'))
+        && (!changed.hasAny(['look']) || validLook(d))
+        && (!changed.hasAny(['frameId']) || validCosmetic(d, 'frameId', 'fr-'))
+        && (!changed.hasAny(['titleId']) || validCosmetic(d, 'titleId', 'ti-'))
+        && (!changed.hasAny(['email']) || !('email' in d));
+    }
+
+    function purchase() {
+      let d = request.resource.data;
+      let old = resource.data;
+      let changed = d.diff(old).affectedKeys();
+      let item = d.get('lastPurchaseItemId', '');
+      let price = itemPrice(item);
+      let oldInv = old.get('inventory', []);
+      let earned = d.get('hypeReportCount', 0) * 10 + d.get('reviewCount', 0) * 25;
+      return changed.hasOnly(['spentCoins', 'inventory', 'lastPurchaseItemId'])
+        && changed.hasAll(['spentCoins', 'inventory'])
+        && price > 0
+        && !(item in oldInv)
+        && d.inventory.size() == oldInv.size() + 1
+        && d.inventory.hasAll(oldInv)
+        && item in d.inventory
+        && d.spentCoins == old.get('spentCoins', 0) + price
+        && earned - d.spentCoins >= 0;
+    }
+
+    match /venues/{venueId} {
+      allow read: if true;
+      allow create, delete: if false;
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hypeReports', 'reviews', 'updatedAt'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['hypeReports']) || validNewHype(venueId))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['reviews']) || validNewReview(venueId));
+
+      // Dono do bar (painel do parceiro): so horario e faixa de preco.
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.get('ownerId', '')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['openingHours', 'priceRange', 'updatedAt'])
+        && request.resource.data.openingHours is string
+        && request.resource.data.openingHours.size() <= 80
+        && isClean(request.resource.data.openingHours)
+        && request.resource.data.priceRange in ['$', '$$', '$$$'];
+
+      match /rateLimits/{uid} {
+        allow read: if false;
+        allow write: if request.auth != null
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['lastReportAt'])
+          && request.resource.data.lastReportAt == request.time;
+      }
+
+      match /reviewLimits/{uid} {
+        allow read: if false;
+        allow write: if request.auth != null
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['lastReviewAt'])
+          && request.resource.data.lastReviewAt == request.time;
+      }
+    }
+
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['displayName', 'createdAt', 'hypeReportCount', 'reviewCount', 'spentCoins', 'inventory'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 60
+        && isClean(request.resource.data.displayName)
+        && request.resource.data.get('hypeReportCount', 0) == 0
+        && request.resource.data.get('reviewCount', 0) == 0
+        && request.resource.data.get('spentCoins', 0) == 0
+        && request.resource.data.get('inventory', []).size() == 0;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && (profileEdit() || hypeAward() || reviewAward() || purchase());
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid}/following/{targetUid} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && targetUid != uid
+        && request.resource.data.keys().hasOnly(['createdAt'])
+        && request.resource.data.createdAt == request.time;
+      allow delete: if request.auth != null
+        && (request.auth.uid == uid || request.auth.uid == targetUid);
+    }
+
+    match /users/{uid}/followers/{followerUid} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.auth.uid == followerUid
+        && followerUid != uid
+        && request.resource.data.keys().hasOnly(['createdAt'])
+        && request.resource.data.createdAt == request.time;
+      allow delete: if request.auth != null
+        && (request.auth.uid == followerUid || request.auth.uid == uid);
+    }
+
+    match /reports/{reportId} {
+      allow read: if false;
+      allow create, update: if request.auth != null
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.type in ['review', 'user']
+        && request.resource.data.reason in ['offensive', 'spam', 'harassment', 'other']
+        && request.resource.data.targetId is string
+        && reportId == request.resource.data.type + '_' + request.resource.data.targetId + '_' + request.auth.uid
+        && request.resource.data.keys().hasOnly(['type', 'targetId', 'venueId', 'reporterId', 'reason', 'createdAt'])
+        && request.resource.data.createdAt == request.time;
+      allow delete: if false;
+    }
+
+    match /locationRequests/{requestId} {
+      allow read: if false;
+      allow create, update: if request.auth != null
+        && request.resource.data.requestedBy == request.auth.uid
+        && requestId.matches(request.auth.uid + '_.*')
+        && request.resource.data.keys().hasOnly(['name', 'city', 'state', 'latitude', 'longitude', 'requestedBy', 'createdAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 120
+        && request.resource.data.city is string && request.resource.data.city.size() <= 120
+        && request.resource.data.state is string && request.resource.data.state.size() <= 60
+        && request.resource.data.latitude is number
+        && request.resource.data.longitude is number
+        && request.resource.data.createdAt == request.time;
+      allow delete: if false;
+    }
+
+    match /deletionRequests/{uid} {
+      allow read, delete: if false;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['requestedAt'])
+        && request.resource.data.requestedAt == request.time;
+    }
+  }
+}
