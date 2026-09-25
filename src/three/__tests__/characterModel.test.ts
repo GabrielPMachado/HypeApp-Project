@@ -1,4 +1,4 @@
-import { Box3 } from "three";
+import { Box3, type Mesh } from "three";
 
 import { DEFAULT_LOOK, LOOK_SLOTS, type Look } from "@/data/character";
 import { itemsOfKind } from "@/data/storeCatalog";
@@ -7,7 +7,11 @@ import { buildCharacterModel } from "@/three/characterModel";
 function assertSound(look: Look) {
   const model = buildCharacterModel(look);
   const box = new Box3().setFromObject(model.root);
-  expect(model.root.children.length).toBeGreaterThan(20);
+  let meshes = 0;
+  model.root.traverse((object) => {
+    if ((object as Mesh).isMesh) meshes += 1;
+  });
+  expect(meshes).toBeGreaterThan(40);
   for (const value of [...box.min.toArray(), ...box.max.toArray()]) {
     expect(Number.isFinite(value)).toBe(true);
   }

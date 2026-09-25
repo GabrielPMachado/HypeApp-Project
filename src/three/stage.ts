@@ -1,12 +1,13 @@
 import { Color, DirectionalLight, DoubleSide, Group, HemisphereLight, Mesh, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, Scene } from "three";
 
 import type { AvatarView, Look } from "@/data/character";
-import { buildCharacterModel, softDiscTexture, type CharacterModel } from "@/three/characterModel";
+import { buildCharacterModel, type CharacterModel } from "@/three/characterModel";
+import { softDiscTexture } from "@/three/kit";
 
 // Enquadramentos da câmera: pra onde ela olha e a que distância (fov fixo).
 const CAMERA: Record<AvatarView, { target: [number, number, number]; distance: number; pitch: number }> = {
-  full: { target: [0, 0.98, 0], distance: 4.7, pitch: 0.05 },
-  bust: { target: [0, 1.42, 0], distance: 2.55, pitch: 0.02 },
+  full: { target: [0, 0.92, 0], distance: 3.95, pitch: 0.05 },
+  bust: { target: [0, 1.38, 0], distance: 2.45, pitch: 0.02 },
   top: { target: [0, 0.98, 0.02], distance: 2.35, pitch: 0.05 },
   bottom: { target: [0, 0.4, 0.02], distance: 2.7, pitch: 0.08 },
   shoes: { target: [0, 0.14, 0.05], distance: 2.0, pitch: 0.28 },
@@ -14,7 +15,7 @@ const CAMERA: Record<AvatarView, { target: [number, number, number]; distance: n
 
 const FOV = 28;
 // Largura que o corpo inteiro (com os cotovelos) ocupa, mais uma folga.
-const FULL_WIDTH = 1.15;
+const FULL_WIDTH = 1.0;
 
 // Cena do personagem: luzes, câmera e o boneco, sem nada de plataforma — quem
 // cria o renderizador (celular ou navegador) só chama render.
