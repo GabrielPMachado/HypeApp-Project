@@ -149,7 +149,7 @@ export function PublicProfileModal({ uid, visible, onClose }: PublicProfileModal
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <ProfileHero
               name={profile.displayName}
-              avatarId={profile.avatarId}
+              look={profile.look}
               frameId={profile.frameId}
               titleLabel={titleItem?.name ?? info.title}
               titleColor={titleItem?.color}

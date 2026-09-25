@@ -177,7 +177,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <ProfileHero
             name={displayName}
-            avatarId={profile?.avatarId ?? ""}
+            look={profile?.look ?? null}
             frameId={profile?.frameId ?? ""}
             titleLabel={titleItem?.name ?? info.title}
             titleColor={titleItem?.color}
@@ -186,6 +186,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
             vibes={profile?.favoriteVibes ?? []}
             level={info.level}
             onPressEmptyBio={() => setEditing(true)}
+            paused={isEditing || isStoreOpen}
           />
 
           {isFirebaseConfigured && user && (

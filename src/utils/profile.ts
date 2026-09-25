@@ -1,7 +1,9 @@
 import { ALL_VIBE_TAGS } from "@/constants/vibeTags";
-import { DEFAULT_AVATAR_ID, DEFAULT_FRAME_ID } from "@/data/storeCatalog";
+import type { Look } from "@/data/character";
+import { DEFAULT_FRAME_ID } from "@/data/storeCatalog";
 import type { VibeTag } from "@/types/venue";
 import type { UserStats } from "@/utils/gamification";
+import { parseLook } from "@/utils/look";
 
 // Perfil de usuário (users/{uid} no Firestore). É público pra qualquer
 // usuário logado — por isso não guarda dado pessoal (o e-mail fica só no
@@ -10,7 +12,7 @@ export interface Profile extends UserStats {
   displayName: string;
   bio: string;
   favoriteVibes: VibeTag[];
-  avatarId: string;
+  look: Look | null; // null = ainda não montou o personagem (ver resolveLook)
   frameId: string;
   titleId: string | null; // null = mostra o título do nível
   spentCoins: number;
@@ -34,7 +36,7 @@ export function parseProfile(data: Record<string, unknown>): Profile {
     favoriteVibes: Array.isArray(data.favoriteVibes)
       ? data.favoriteVibes.filter((tag): tag is VibeTag => ALL_VIBE_TAGS.includes(tag as VibeTag))
       : [],
-    avatarId: typeof data.avatarId === "string" ? data.avatarId : DEFAULT_AVATAR_ID,
+    look: parseLook(data.look),
     frameId: typeof data.frameId === "string" ? data.frameId : DEFAULT_FRAME_ID,
     titleId: typeof data.titleId === "string" ? data.titleId : null,
     hypeReportCount: toCount(data.hypeReportCount),

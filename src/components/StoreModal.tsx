@@ -12,20 +12,24 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import {
   canUseItem,
-  DEFAULT_AVATAR_ID,
   DEFAULT_FRAME_ID,
   getRarity,
+  isLookSlot,
   ITEM_KIND_LABELS,
   itemsOfKind,
   RARITY_INFO,
+  viewForKind,
   type ItemKind,
   type StoreItem,
 } from "@/data/storeCatalog";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import { haptics } from "@/utils/haptics";
+import { resolveLook, withPart } from "@/utils/look";
 
-const TABS: ItemKind[] = ["avatar", "frame", "title"];
+// Só as categorias que têm item pago (pele e expressão são todas gratuitas e
+// ficam só na edição de perfil).
+const TABS: ItemKind[] = ["hair", "hairColor", "top", "accessory", "eyes", "frame", "title"];
 
 interface StoreModalProps {
   visible: boolean;
@@ -39,27 +43,25 @@ type Notice = { title: string; message: string; icon: "check-circle" | "alert-ci
 // preço, saldo e se o item já não é da pessoa.
 export function StoreModal({ visible, onClose }: StoreModalProps) {
   const { profile, displayName, coins, buyItem, saveProfile } = useAuth();
-  const [tab, setTab] = useState<ItemKind>("avatar");
+  const [tab, setTab] = useState<ItemKind>("hair");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pending, setPending] = useState<StoreItem | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
 
   const inventory = profile?.inventory ?? [];
-  const equippedId =
-    tab === "avatar"
-      ? profile?.avatarId ?? DEFAULT_AVATAR_ID
-      : tab === "frame"
-        ? profile?.frameId ?? DEFAULT_FRAME_ID
-        : profile?.titleId ?? null;
+  const currentLook = resolveLook(profile?.look, displayName);
+  const equippedId = isLookSlot(tab)
+    ? currentLook[tab]
+    : tab === "frame"
+      ? profile?.frameId ?? DEFAULT_FRAME_ID
+      : profile?.titleId ?? null;
 
   const equip = async (item: StoreItem) => {
-    const patch =
-      item.kind === "avatar"
-        ? { avatarId: item.id }
-        : item.kind === "frame"
-          ? { frameId: item.id }
-          : { titleId: item.id };
-    await saveProfile(patch);
+    if (isLookSlot(item.kind)) {
+      await saveProfile({ look: withPart(currentLook, item) });
+      return;
+    }
+    await saveProfile(item.kind === "frame" ? { frameId: item.id } : { titleId: item.id });
   };
 
   const fail = (error: unknown) => {
@@ -131,7 +133,7 @@ export function StoreModal({ visible, onClose }: StoreModalProps) {
     const isEquipped = item.id === equippedId;
     const affordable = coins >= item.price;
     const rarity = RARITY_INFO[getRarity(item)];
-    const previewAvatar = item.kind === "avatar" ? item.id : profile?.avatarId;
+    const previewLook = withPart(currentLook, item);
     const previewFrame = item.kind === "frame" ? item.id : profile?.frameId;
 
     const stateLabel = isEquipped ? "equipado" : owned ? "disponível para equipar" : `custa ${item.price} moedas`;
@@ -164,9 +166,10 @@ export function StoreModal({ visible, onClose }: StoreModalProps) {
         ) : (
           <UserAvatar
             name={displayName}
-            avatarId={previewAvatar}
+            look={previewLook}
             frameId={previewFrame}
-            size={item.kind === "avatar" ? 62 : 54}
+            size={isLookSlot(item.kind) ? 62 : 54}
+            view={viewForKind(item.kind)}
           />
         )}
 
@@ -220,7 +223,13 @@ export function StoreModal({ visible, onClose }: StoreModalProps) {
           </View>
         </View>
 
-        <View style={styles.tabs} accessibilityRole="tablist">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabsScroll}
+          contentContainerStyle={styles.tabs}
+          accessibilityRole="tablist"
+        >
           {TABS.map((kind) => {
             const selected = tab === kind;
             return (
@@ -241,7 +250,7 @@ export function StoreModal({ visible, onClose }: StoreModalProps) {
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.grid}>{itemsOfKind(tab).map(renderItem)}</View>
@@ -254,7 +263,7 @@ export function StoreModal({ visible, onClose }: StoreModalProps) {
           item={pending}
           coins={coins}
           userName={displayName}
-          avatarId={profile?.avatarId}
+          look={currentLook}
           frameId={profile?.frameId}
           isBusy={busyId !== null}
           onConfirm={handleConfirm}
@@ -314,15 +323,17 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.display,
     color: colors.text,
   },
+  tabsScroll: {
+    flexGrow: 0,
+  },
   tabs: {
-    flexDirection: "row",
     gap: 8,
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
   tab: {
-    flex: 1,
     minHeight: 44,
+    paddingHorizontal: 16,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 999,

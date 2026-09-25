@@ -3,15 +3,17 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Coin } from "@/components/Coin";
 import { PressableScale } from "@/components/PressableScale";
 import { UserAvatar } from "@/components/UserAvatar";
+import type { Look } from "@/data/character";
 import { getRarity, RARITY_INFO, type StoreItem } from "@/data/storeCatalog";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
+import { resolveLook, withPart } from "@/utils/look";
 
 interface ConfirmPurchaseModalProps {
   item: StoreItem | null;
   coins: number;
   userName: string;
-  avatarId?: string | null;
+  look?: Look | null;
   frameId?: string | null;
   isBusy: boolean;
   onConfirm: () => void;
@@ -25,7 +27,7 @@ export function ConfirmPurchaseModal({
   item,
   coins,
   userName,
-  avatarId,
+  look,
   frameId,
   isBusy,
   onConfirm,
@@ -50,9 +52,11 @@ export function ConfirmPurchaseModal({
               ) : (
                 <UserAvatar
                   name={userName}
-                  avatarId={item.kind === "avatar" ? item.id : avatarId}
+                  look={withPart(resolveLook(look, userName), item)}
                   frameId={item.kind === "frame" ? item.id : frameId}
-                  size={88}
+                  size={210}
+                  view="full"
+                  interactive
                   glow
                 />
               )}
@@ -124,6 +128,7 @@ const styles = StyleSheet.create({
   },
   preview: {
     minHeight: 96,
+    paddingVertical: 8,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,

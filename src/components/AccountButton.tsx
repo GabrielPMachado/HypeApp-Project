@@ -22,7 +22,7 @@ export function AccountButton() {
       >
         <UserAvatar
           name={displayName}
-          avatarId={profile?.avatarId}
+          look={profile?.look}
           frameId={profile?.frameId}
           size={32}
         />

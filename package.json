@@ -24,6 +24,7 @@
     "expo-constants": "~57.0.19",
     "expo-dev-client": "^57.0.19",
     "expo-font": "~57.0.4",
+    "expo-gl": "~57.0.2",
     "expo-haptics": "~57.0.3",
     "expo-image-picker": "~57.0.20",
     "expo-linear-gradient": "~57.0.2",
@@ -44,7 +45,8 @@
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
-    "react-native-worklets": "0.10.1"
+    "react-native-worklets": "0.10.1",
+    "three": "^0.170.0"
   },
   "expo": {
     "install": {
@@ -59,6 +61,11 @@
       "/node_modules/",
       "/android/",
       "/ios/"
+    ],
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|three/examples/jsm))",
+      "/node_modules/react-native-reanimated/plugin/",
+      "/node_modules/@react-native/babel-preset/"
     ]
   },
   "devDependencies": {
@@ -66,6 +73,7 @@
     "@commitlint/config-conventional": "^21.2.2",
     "@types/jest": "^30.0.0",
     "@types/react": "~19.2.2",
+    "@types/three": "^0.170.0",
     "commit-and-tag-version": "^13.2.1",
     "expo-modules-core": "~57.0.19",
     "husky": "^9.1.7",

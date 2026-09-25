@@ -17,12 +17,14 @@ import { Coin } from "@/components/Coin";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth, type ProfilePatch } from "@/context/AuthContext";
 import { ALL_VIBE_TAGS, VIBE_TAG_LABELS } from "@/constants/vibeTags";
+import { LOOK_SLOT_LABELS, LOOK_SLOTS, type Look, type LookSlot } from "@/data/character";
 import {
   canUseItem,
-  DEFAULT_AVATAR_ID,
   DEFAULT_FRAME_ID,
   getItem,
+  isLookSlot,
   itemsOfKind,
+  viewForKind,
   type StoreItem,
 } from "@/data/storeCatalog";
 import { colors } from "@/theme/colors";
@@ -30,6 +32,7 @@ import { fontFamily } from "@/theme/typography";
 import type { VibeTag } from "@/types/venue";
 import { calcPoints, getLevelInfo } from "@/utils/gamification";
 import { haptics } from "@/utils/haptics";
+import { lookEquals, resolveLook, withPart } from "@/utils/look";
 import { getModerationIssue, moderationMessage } from "@/utils/moderation";
 
 const NAME_MIN = 2;
@@ -50,7 +53,8 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [vibes, setVibes] = useState<VibeTag[]>([]);
-  const [avatarId, setAvatarId] = useState(DEFAULT_AVATAR_ID);
+  const [look, setLook] = useState<Look>(() => resolveLook(null, ""));
+  const [activeSlot, setActiveSlot] = useState<LookSlot>("hair");
   const [frameId, setFrameId] = useState(DEFAULT_FRAME_ID);
   const [titleId, setTitleId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -63,7 +67,7 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
     setName(profile?.displayName || displayName);
     setBio(profile?.bio ?? "");
     setVibes(profile?.favoriteVibes ?? []);
-    setAvatarId(profile?.avatarId ?? DEFAULT_AVATAR_ID);
+    setLook(resolveLook(profile?.look, profile?.displayName || displayName));
     setFrameId(profile?.frameId ?? DEFAULT_FRAME_ID);
     setTitleId(profile?.titleId ?? null);
     setError("");
@@ -80,9 +84,12 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
   if (trimmedName !== (profile?.displayName ?? "")) patch.displayName = trimmedName;
   if (bio.trim() !== (profile?.bio ?? "")) patch.bio = bio.trim();
   if (vibes.join() !== (profile?.favoriteVibes ?? []).join()) patch.favoriteVibes = vibes;
-  if (avatarId !== (profile?.avatarId ?? DEFAULT_AVATAR_ID)) patch.avatarId = avatarId;
   if (frameId !== (profile?.frameId ?? DEFAULT_FRAME_ID)) patch.frameId = frameId;
   if (titleId !== (profile?.titleId ?? null)) patch.titleId = titleId;
+  // Quem ainda não salvou um personagem tem um sorteado pelo nome; ao salvar
+  // qualquer coisa, grava esse (ou o editado) pra ele não mudar se o nome mudar.
+  const lookChanged = !lookEquals(look, resolveLook(profile?.look, profile?.displayName || displayName));
+  if (lookChanged || (profile?.look === null && Object.keys(patch).length > 0)) patch.look = look;
   const hasChanges = Object.keys(patch).length > 0;
   const canSave = hasChanges && nameValid && !nameIssue && !bioIssue && !isSaving;
 
@@ -108,7 +115,7 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
       onOpenStore?.();
       return;
     }
-    if (item.kind === "avatar") setAvatarId(item.id);
+    if (isLookSlot(item.kind)) setLook((prev) => withPart(prev, item));
     else if (item.kind === "frame") setFrameId(item.id);
     else setTitleId(item.id);
   };
@@ -132,7 +139,7 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
 
   const renderItemCell = (item: StoreItem, selected: boolean) => {
     const locked = !canUseItem(item, inventory);
-    const previewAvatar = item.kind === "avatar" ? item.id : avatarId;
+    const previewLook = withPart(look, item);
     const previewFrame = item.kind === "frame" ? item.id : frameId;
 
     return (
@@ -155,9 +162,10 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
           <View style={locked && styles.lockedPreview}>
             <UserAvatar
               name={name}
-              avatarId={previewAvatar}
+              look={previewLook}
               frameId={previewFrame}
-              size={item.kind === "avatar" ? 52 : 44}
+              size={isLookSlot(item.kind) ? 52 : 44}
+              view={viewForKind(item.kind)}
             />
           </View>
         )}
@@ -207,7 +215,7 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
 
         {/* Prévia fixa: fica à vista enquanto a pessoa rola e escolhe. */}
         <View style={styles.previewBar}>
-          <UserAvatar name={name} avatarId={avatarId} frameId={frameId} size={60} glow />
+          <UserAvatar name={name} look={look} frameId={frameId} size={168} view="full" interactive glow />
           <View style={styles.previewText}>
             <Text style={styles.previewName} numberOfLines={1}>
               {trimmedName || "Seu nome"}
@@ -301,9 +309,36 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Avatar</Text>
+              <Text style={styles.label}>Personagem</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.slotRow}
+                keyboardShouldPersistTaps="handled"
+              >
+                {LOOK_SLOTS.map((slot) => {
+                  const selected = slot === activeSlot;
+                  return (
+                    <Pressable
+                      key={slot}
+                      onPress={() => {
+                        haptics.tap();
+                        setActiveSlot(slot);
+                      }}
+                      accessibilityRole="tab"
+                      accessibilityLabel={LOOK_SLOT_LABELS[slot]}
+                      accessibilityState={{ selected }}
+                      style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}
+                    >
+                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                        {LOOK_SLOT_LABELS[slot]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
               <View style={styles.grid}>
-                {itemsOfKind("avatar").map((item) => renderItemCell(item, item.id === avatarId))}
+                {itemsOfKind(activeSlot).map((item) => renderItemCell(item, look[activeSlot] === item.id))}
               </View>
             </View>
 
@@ -458,6 +493,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fontFamily.body,
     color: colors.hypeHigh,
+  },
+  slotRow: {
+    gap: 8,
+    paddingBottom: 4,
   },
   chipsGrid: {
     flexDirection: "row",

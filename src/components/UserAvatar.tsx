@@ -1,49 +1,102 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
-import { DEFAULT_AVATAR_ID, DEFAULT_FRAME_ID, getItem } from "@/data/storeCatalog";
-import { fontFamily } from "@/theme/typography";
+import { Character3D } from "@/components/Character3D";
+import { CharacterAvatar } from "@/components/CharacterAvatar";
+import type { AvatarView, Look } from "@/data/character";
+import { DEFAULT_FRAME_ID, getItem } from "@/data/storeCatalog";
+import { resolveLook } from "@/utils/look";
 
 interface UserAvatarProps {
   name: string;
-  avatarId?: string | null;
+  // Peças equipadas do personagem; null/ausente = ainda não montou o seu
+  // (cai num personagem inicial sorteado a partir do nome, ver resolveLook).
+  look?: Look | null;
   frameId?: string | null;
   size?: number;
   // Halo suave na cor da moldura — só nos tamanhos grandes (perfil).
   glow?: boolean;
+  // Enquadramento: "bust" (padrão) é o busto num círculo, "full" é o boneco 3D
+  // de corpo inteiro num cartão em pé (size vira a altura), e "top" | "bottom" |
+  // "shoes" são recortes de perto pra prévia de peças na loja.
+  view?: AvatarView;
+  // Só no "full": o boneco balança e gira com o dedo.
+  interactive?: boolean;
+  paused?: boolean;
 }
 
-// Avatar do usuário: glifo do avatar equipado (ou a inicial do nome, no
-// "Clássico") sobre um degradê do tom do item, dentro da moldura equipada.
-// Ids desconhecidos (item removido do catálogo, dado antigo) caem no
-// padrão em vez de quebrar.
-export function UserAvatar({ name, avatarId, frameId, size = 44, glow = false }: UserAvatarProps) {
-  const avatar = getItem(avatarId) ?? getItem(DEFAULT_AVATAR_ID)!;
+// Largura do cartão de corpo inteiro em relação à altura.
+const FULL_ASPECT = 0.62;
+
+// Avatar do usuário: o personagem montado por ele (data/character.ts) sobre um
+// fundo tingido pela cor da moldura equipada, dentro da moldura. Id de moldura
+// desconhecido (item removido do catálogo, dado antigo) cai na padrão.
+export function UserAvatar({ name, look, frameId, size = 44, glow = false, view = "bust", interactive = false, paused = false }: UserAvatarProps) {
   const frame = getItem(frameId) ?? getItem(DEFAULT_FRAME_ID)!;
+  const character = resolveLook(look, name);
 
   const ring = Math.max(2, Math.round(size * 0.055));
   const inner = size - ring * 2;
-  const initial = (name.trim().charAt(0) || "?").toUpperCase();
+
+  if (view === "full") {
+    const width = Math.round(size * FULL_ASPECT);
+    const radius = Math.round(width * 0.24);
+    const border = Math.max(2, Math.round(width * 0.03));
+    const stage = (
+      <View style={[styles.faceBase, { width: width - border * 2, height: size - border * 2, borderRadius: radius - border }]}>
+        <Character3D
+          look={character}
+          width={width - border * 2}
+          height={size - border * 2}
+          frameColor={frame.color}
+          interactive={interactive}
+          paused={paused}
+        />
+      </View>
+    );
+    return (
+      <View
+        style={{ width, height: size }}
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={`Personagem de ${name || "usuário"}`}
+      >
+        {glow && (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.glow,
+              { top: -12, left: -12, width: width + 24, height: size + 24, borderRadius: radius + 12, backgroundColor: `${frame.color}22` },
+            ]}
+          />
+        )}
+        {frame.gradient ? (
+          <LinearGradient
+            colors={frame.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.center, { width, height: size, borderRadius: radius }]}
+          >
+            {stage}
+          </LinearGradient>
+        ) : (
+          <View style={[styles.center, { width, height: size, borderRadius: radius, borderWidth: border, borderColor: frame.color }]}>
+            {stage}
+          </View>
+        )}
+      </View>
+    );
+  }
 
   const face = (
     <View style={[styles.faceBase, { width: inner, height: inner, borderRadius: inner / 2 }]}>
       <LinearGradient
-        colors={[`${avatar.color}55`, `${avatar.color}14`]}
+        colors={[`${frame.color}66`, `${frame.color}12`]}
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
         style={styles.faceFill}
       >
-        {avatar.icon ? (
-          <MaterialCommunityIcons name={avatar.icon} size={inner * 0.56} color={avatar.color} />
-        ) : (
-          <Text
-            style={[styles.initial, { fontSize: inner * 0.44, color: avatar.color }]}
-            allowFontScaling={false}
-          >
-            {initial}
-          </Text>
-        )}
+        <CharacterAvatar look={character} view={view} size={inner} />
       </LinearGradient>
     </View>
   );
@@ -106,8 +159,5 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -10,
     left: -10,
-  },
-  initial: {
-    fontFamily: fontFamily.display,
   },
 });

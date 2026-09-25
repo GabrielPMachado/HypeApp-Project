@@ -6,15 +6,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PublicProfileModal } from "@/components/PublicProfileModal";
 import { UserAvatar } from "@/components/UserAvatar";
-import { DEFAULT_AVATAR_ID, DEFAULT_FRAME_ID } from "@/data/storeCatalog";
+import type { Look } from "@/data/character";
+import { DEFAULT_FRAME_ID } from "@/data/storeCatalog";
 import { db } from "@/services/firebase";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
+import { parseLook } from "@/utils/look";
 
 interface ListedUser {
   uid: string;
   displayName: string;
-  avatarId: string;
+  look: Look | null;
   frameId: string;
 }
 
@@ -49,7 +51,7 @@ export function UserListModal({ visible, onClose, uid, relation, title }: UserLi
             return {
               uid: relationDoc.id,
               displayName: typeof data.displayName === "string" && data.displayName ? data.displayName : "Alguém",
-              avatarId: typeof data.avatarId === "string" ? data.avatarId : DEFAULT_AVATAR_ID,
+              look: parseLook(data.look),
               frameId: typeof data.frameId === "string" ? data.frameId : DEFAULT_FRAME_ID,
             };
           })
@@ -108,7 +110,7 @@ export function UserListModal({ visible, onClose, uid, relation, title }: UserLi
                 accessibilityRole="button"
                 accessibilityLabel={`Ver perfil de ${item.displayName}`}
               >
-                <UserAvatar name={item.displayName} avatarId={item.avatarId} frameId={item.frameId} size={40} />
+                <UserAvatar name={item.displayName} look={item.look} frameId={item.frameId} size={40} />
                 <Text style={styles.name}>{item.displayName}</Text>
               </Pressable>
             )}

@@ -29,6 +29,7 @@ import { deleteObject, ref } from "firebase/storage";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { FeedbackModal } from "@/components/FeedbackModal";
+import type { Look } from "@/data/character";
 import type { StoreItem } from "@/data/storeCatalog";
 import { auth, db, googleWebClientId, isFirebaseConfigured, storage } from "@/services/firebase";
 import type { Venue, VibeTag } from "@/types/venue";
@@ -60,7 +61,7 @@ export interface ProfilePatch {
   displayName?: string;
   bio?: string;
   favoriteVibes?: VibeTag[];
-  avatarId?: string;
+  look?: Look;
   frameId?: string;
   titleId?: string | null;
 }

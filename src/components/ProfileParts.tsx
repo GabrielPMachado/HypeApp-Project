@@ -13,6 +13,7 @@ import { Coin } from "@/components/Coin";
 import { PressableScale } from "@/components/PressableScale";
 import { UserAvatar } from "@/components/UserAvatar";
 import { VIBE_TAG_LABELS } from "@/constants/vibeTags";
+import type { Look } from "@/data/character";
 import { colors } from "@/theme/colors";
 import { fontFamily } from "@/theme/typography";
 import type { VibeTag } from "@/types/venue";
@@ -54,7 +55,7 @@ export function ProfileBackdrop({ color }: { color: string }) {
 
 interface ProfileHeroProps {
   name: string;
-  avatarId: string;
+  look: Look | null;
   frameId: string;
   titleLabel: string;
   titleColor?: string;
@@ -64,11 +65,13 @@ interface ProfileHeroProps {
   level?: number;
   // Só no perfil próprio: sem bio ainda, mostra um convite pra escrever.
   onPressEmptyBio?: () => void;
+  // Outra tela por cima (editor, loja): o boneco para de balançar.
+  paused?: boolean;
 }
 
 export function ProfileHero({
   name,
-  avatarId,
+  look,
   frameId,
   titleLabel,
   titleColor = colors.accent,
@@ -77,11 +80,12 @@ export function ProfileHero({
   vibes,
   level,
   onPressEmptyBio,
+  paused,
 }: ProfileHeroProps) {
   return (
     <View style={styles.hero}>
       <View style={styles.avatarWrap}>
-        <UserAvatar name={name} avatarId={avatarId} frameId={frameId} size={104} glow />
+        <UserAvatar name={name} look={look} frameId={frameId} size={264} view="full" interactive paused={paused} glow />
         {level !== undefined && (
           <View style={styles.levelChip} accessible accessibilityLabel={`Nível ${level}`}>
             <Text style={styles.levelChipText}>NÍV. {level}</Text>
