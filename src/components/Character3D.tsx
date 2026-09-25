@@ -1,6 +1,6 @@
 import { GLView, type ExpoWebGLRenderingContext } from "expo-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PanResponder, StyleSheet, View } from "react-native";
+import { PanResponder, StyleSheet, Text, View } from "react-native";
 import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
 
 import { CharacterAvatar } from "@/components/CharacterAvatar";
@@ -40,16 +40,20 @@ interface Engine {
 // ficar em branco.
 export function Character3D({ look, width, height, view = "full", frameColor, interactive = false, paused = false }: Character3DProps) {
   const engine = useRef<Engine | null>(null);
-  const [failed, setFailed] = useState(false);
+  // Motivo da falha do 3D (null = funcionando). Aparece em letra miúda embaixo do
+  // desenho 2D de reserva, pra dar pra saber por que o GL não subiu.
+  const [failed, setFailed] = useState<string | null>(null);
   const lookKey = LOOK_SLOTS.map((slot) => look[slot]).join("|");
   const latest = useRef({ look, view, frameColor, interactive, paused, width, height });
   latest.current = { look, view, frameColor, interactive, paused, width, height };
 
-  const draw = () => {
+  // verify: no primeiro quadro, confere (antes de apresentar) se o boneco de fato foi desenhado.
+  const draw = (verify = false) => {
     const e = engine.current;
     if (!e) return;
     e.stage.setYaw(e.yaw);
     e.renderer.render(e.stage.scene, e.stage.camera);
+    if (verify && isBlank(e.gl)) throw new Error("quadro vazio (o boneco não foi desenhado)");
     e.gl.endFrameEXP();
   };
 
@@ -98,18 +102,24 @@ export function Character3D({ look, width, height, view = "full", frameColor, in
       engine.current = { stage, renderer, gl, frame: null, yaw: 0, startYaw: 0, lastTouch: 0, dragging: false };
 
       if (current.interactive) {
-        draw();
+        draw(true);
         if (!current.paused) engine.current.frame = requestAnimationFrame(loop);
       } else {
         // Um quadro parado (e mais um logo depois, pro primeiro não sair vazio).
-        draw();
+        draw(true);
         engine.current.frame = requestAnimationFrame(() => {
           draw();
           if (engine.current) engine.current.frame = null;
         });
       }
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      const e = engine.current;
+      if (e) {
+        e.stage.dispose();
+        e.renderer.dispose();
+        engine.current = null;
+      }
+      setFailed(describe(error));
     }
   };
 
@@ -122,8 +132,8 @@ export function Character3D({ look, width, height, view = "full", frameColor, in
       e.stage.setBackdrop(frameColor);
       e.stage.setView(view);
       if (!interactive) draw();
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      setFailed(describe(error));
     }
   }, [lookKey, frameColor, view]);
 
@@ -191,7 +201,16 @@ export function Character3D({ look, width, height, view = "full", frameColor, in
     [],
   );
 
-  if (failed) return <CharacterAvatar look={look} view={view} size={height} />;
+  if (failed !== null) {
+    return (
+      <View style={{ width, height }}>
+        <CharacterAvatar look={look} view={view} size={height} />
+        <Text style={styles.reason} numberOfLines={3}>
+          3D indisponível: {failed}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ width, height }} {...(interactive ? pan.panHandlers : {})}>
@@ -204,4 +223,26 @@ const styles = StyleSheet.create({
   fill: {
     flex: 1,
   },
+  reason: {
+    position: "absolute",
+    left: 4,
+    right: 4,
+    bottom: 2,
+    fontSize: 8,
+    color: "#FF9E9E",
+    textAlign: "center",
+  },
 });
+
+function describe(error: unknown): string {
+  const text = error instanceof Error ? error.message : String(error);
+  return text.replace(/s+/g, " ").slice(0, 140);
+}
+
+// A cena sumiu (contexto criado, mas nada desenhado)? Lê um pixel do meio do
+// quadro: se ainda é a cor do fundo, o boneco não foi pra tela.
+function isBlank(gl: ExpoWebGLRenderingContext): boolean {
+  const pixel = new Uint8Array(4);
+  gl.readPixels(Math.floor(gl.drawingBufferWidth / 2), Math.floor(gl.drawingBufferHeight * 0.45), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+  return Math.abs(pixel[0] - 16) < 8 && Math.abs(pixel[1] - 16) < 8 && Math.abs(pixel[2] - 21) < 8;
+}
