@@ -95,6 +95,15 @@ describe("getCurrentHypeStatus", () => {
     expect(status!.score).toBe(3);
   });
 
+  it("ignora report com data no futuro (além da folga de relógio)", () => {
+    expect(getCurrentHypeStatus([report(-60, 10)])).toBeNull();
+    expect(getCurrentHypeStatus([report(-60, 10), report(10, 4)])!.score).toBe(4);
+  });
+
+  it("tolera pequena diferença de relógio (report poucos minutos no futuro vale)", () => {
+    expect(getCurrentHypeStatus([report(-2, 8)])!.score).toBe(8);
+  });
+
   it("classifica o nível a partir da média calculada, não da nota semente", () => {
     const status = getCurrentHypeStatus([report(5, 9)]);
     expect(status!.level).toBe("high");

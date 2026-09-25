@@ -5,6 +5,7 @@ export const HYPE_HOLD_MINUTES = 30; // um report vale integralmente por esse te
 export const HYPE_DECAY_STEP_MINUTES = 30; // depois disso, perde HYPE_DECAY_POINTS a cada passo desses
 export const HYPE_DECAY_POINTS = 1;
 export const HYPE_COOLDOWN_MINUTES = 30; // intervalo entre dois hypes da mesma pessoa no mesmo bar (espelha canSubmitHype nas regras do Firestore)
+export const HYPE_FUTURE_TOLERANCE_MINUTES = 5; // folga pro relógio do aparelho; report "do futuro" além disso é descartado
 export const HYPE_ZERO_AFTER_MINUTES = 120; // sem nenhum report por esse tempo, a nota zera de vez
 export const HYPE_RESET_HOUR = 12; // o "dia de hype" vai de 12:00 a 12:00 (hora local do aparelho)
 
@@ -38,7 +39,13 @@ export function hypeDayStart(now: Date = new Date()): Date {
 export function getCurrentHypeStatus(reports: HypeReport[]): HypeStatus | null {
   const now = Date.now();
   const dayStart = hypeDayStart(new Date(now)).getTime();
-  const valid = reports.filter((r) => new Date(r.createdAt).getTime() >= dayStart);
+  // Um createdAt no futuro (data forjada por um cliente adulterado) ficaria
+  // "fresco" pra sempre — descarta o que passa da folga de relógio.
+  const latestAllowed = now + HYPE_FUTURE_TOLERANCE_MINUTES * 60 * 1000;
+  const valid = reports.filter((r) => {
+    const time = new Date(r.createdAt).getTime();
+    return time >= dayStart && time <= latestAllowed;
+  });
   if (valid.length === 0) return null;
 
   const ageMinutes = (r: HypeReport) =>
@@ -93,7 +100,7 @@ export function hypeCooldownRemainingMinutes(
   if (last === null) return 0;
 
   const remainingMs = HYPE_COOLDOWN_MINUTES * 60 * 1000 - (now - last);
-  return remainingMs > 0 ? Math.ceil(remainingMs / (60 * 1000)) : 0;
+  return remainingMs > 0 ? Math.min(HYPE_COOLDOWN_MINUTES, Math.ceil(remainingMs / (60 * 1000))) : 0;
 }
 
 // Converte a nota 0-10 numa categoria pro selo colorido (🟢🟡🔴).
