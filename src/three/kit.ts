@@ -158,6 +158,12 @@ export class Kit {
     return material;
   }
 
+  // Material criado fora (cores por vértice, por exemplo): entra na limpeza do dispose.
+  track<T extends Material>(material: T): T {
+    this.materials.set(`x|${this.materials.size}`, material);
+    return material;
+  }
+
   mesh(parent: Object3D, geometry: BufferGeometry, material: Material, x = 0, y = 0, z = 0): Mesh {
     this.geometries.push(geometry);
     const mesh = new Mesh(geometry, material);

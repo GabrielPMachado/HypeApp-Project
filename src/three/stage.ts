@@ -31,13 +31,13 @@ export class CharacterStage {
   constructor() {
     this.scene.add(this.pivot);
 
-    this.scene.add(new HemisphereLight(0xfff6ee, 0x6b6a80, 1.25));
+    this.scene.add(new HemisphereLight(0xfff6ee, 0x6b6a80, 1.5));
 
-    const key = new DirectionalLight(0xfff0dc, 2.6);
+    const key = new DirectionalLight(0xfff0dc, 2.3);
     key.position.set(2.2, 3.4, 3.6);
     this.scene.add(key);
 
-    const fill = new DirectionalLight(0xa9c3ff, 0.75);
+    const fill = new DirectionalLight(0xdde6ff, 1.7);
     fill.position.set(-3.2, 1.4, 2.4);
     this.scene.add(fill);
 

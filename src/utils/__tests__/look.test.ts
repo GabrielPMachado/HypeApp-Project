@@ -41,6 +41,13 @@ describe("seededLook", () => {
     }
   });
 
+  it("nunca sorteia careca", () => {
+    const hairs = new Set<string>();
+    for (let i = 0; i < 400; i++) hairs.add(seededLook(`pessoa-${i}`).hair);
+    expect(hairs.has("hs-bald")).toBe(false);
+    expect(hairs.size).toBeGreaterThan(3);
+  });
+
   it("varia entre pessoas diferentes", () => {
     const looks = new Set(["Ana", "Bruno", "Carla", "Dani", "Edu", "Fabi", "Gabi", "Hugo"].map((n) => JSON.stringify(seededLook(n))));
     expect(looks.size).toBeGreaterThan(4);

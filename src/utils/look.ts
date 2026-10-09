@@ -17,6 +17,10 @@ export function parseLook(value: unknown): Look | null {
   return look;
 }
 
+// Peças que ficam de fora do sorteio automático: ainda dá pra escolher, mas ninguém
+// deve nascer careca só porque o nome caiu nessa.
+const NOT_SEEDED = ["hs-bald"];
+
 function hashSeed(seed: string): number {
   let hash = 5381;
   for (let i = 0; i < seed.length; i++) hash = ((hash << 5) + hash + seed.charCodeAt(i)) >>> 0;
@@ -29,7 +33,7 @@ function hashSeed(seed: string): number {
 export function seededLook(seed: string): Look {
   const hash = hashSeed(seed);
   const pick = (slot: Look extends Record<infer K, string> ? K : never, shift: number): string => {
-    const free = itemsOfKind(slot).filter((item) => item.price === 0);
+    const free = itemsOfKind(slot).filter((item) => item.price === 0 && !NOT_SEEDED.includes(item.id));
     return free[(hash >>> shift) % free.length].id;
   };
 

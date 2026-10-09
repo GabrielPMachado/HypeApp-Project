@@ -3,7 +3,8 @@ import type { Group } from "three";
 import { darken, DEFAULT_LOOK, EYE_COLORS, HAIR_COLORS, SKIN_COLORS, type Look } from "@/data/character";
 import { buildAccessory } from "@/three/accessories";
 import { buildBody } from "@/three/body";
-import { buildHair, buildHead, HEAD_SCALE, NATURAL_HAIR, NECK_TOP } from "@/three/head";
+import { buildHair, NATURAL_HAIR } from "@/three/hair";
+import { buildHead, HEAD_SCALE, NECK_TOP } from "@/three/head";
 import { Kit } from "@/three/kit";
 
 // Modelo 3D do personagem: geometria procedural (esferas, cilindros, tubos)
@@ -13,7 +14,9 @@ import { Kit } from "@/three/kit";
 //
 // Unidades: o boneco tem ~1,8 de altura, pés em y=0, olhando pra +z.
 //   kit.ts          material, tubo, revolução (ferramentas)
-//   head.ts         crânio, rosto e cabelo
+//   head.ts         crânio e rosto
+//   hair.ts         cabelo (mechas achatadas fundidas)
+//   ribbon.ts       geometria das mechas
 //   accessories.ts  óculos, bonés, chapéus, coroa...
 //   body.ts         braços, roupa, calça e calçado
 

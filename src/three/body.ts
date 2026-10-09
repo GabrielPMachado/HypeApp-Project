@@ -155,6 +155,8 @@ function buildTop(kit: Kit, id: string, skin: string) {
         const angle = rad(-112 + i * 37);
         kit.mesh(kit.root, new SphereGeometry(0.05, 14, 10), fur, Math.sin(angle) * 0.185, 1.17, -Math.cos(angle) * 0.1 - 0.02);
       }
+      // capuz caído nas costas: aba de tecido atrás do pescoço, sob o pelo
+      kit.mesh(kit.root, new SphereGeometry(1, 28, 20), kit.std(color, 0.55), 0, 1.115, -0.085).scale.set(0.205, 0.1, 0.15);
       // zíper, botões de pressão e bolsos
       bar(0.014, 0.4, 0.02, kit.std(dark, 0.6), 0, 0.85, 0.25);
       [0.98, 0.86, 0.74].forEach((y) => kit.mesh(kit.root, new SphereGeometry(0.02, 14, 10), kit.gloss("#6E3418", 0.35, 0.6), 0, y, 0.252));
