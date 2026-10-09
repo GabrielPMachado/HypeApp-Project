@@ -1,0 +1,99 @@
+name: APK de release (Android)
+
+# Gera o APK de release num servidor Linux do GitHub. Existe porque o Windows
+# da máquina de desenvolvimento bloqueia o hermesc.exe (Smart App Control), e
+# sem o hermesc não dá pra compilar o bundle do Hermes localmente.
+#
+# Só roda quando alguém com acesso de escrita clica em "Run workflow"
+# (Actions > APK de release (Android)); não roda a cada push. As chaves do app
+# (EXPO_PUBLIC_*) vêm dos segredos do repositório, nunca do código.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm ci
+
+      # O app lê as chaves do .env na hora de empacotar o JS (e o app.config.js
+      # lê a chave do Google Maps no prebuild). Falha cedo, dizendo só o NOME de
+      # qualquer segredo que esteja faltando.
+      - name: Criar .env a partir dos segredos
+        env:
+          EXPO_PUBLIC_FIREBASE_API_KEY: ${{ secrets.EXPO_PUBLIC_FIREBASE_API_KEY }}
+          EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          EXPO_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.EXPO_PUBLIC_FIREBASE_PROJECT_ID }}
+          EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          EXPO_PUBLIC_FIREBASE_APP_ID: ${{ secrets.EXPO_PUBLIC_FIREBASE_APP_ID }}
+          EXPO_PUBLIC_GEOAPIFY_API_KEY: ${{ secrets.EXPO_PUBLIC_GEOAPIFY_API_KEY }}
+          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          names="EXPO_PUBLIC_FIREBASE_API_KEY EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN EXPO_PUBLIC_FIREBASE_PROJECT_ID EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID EXPO_PUBLIC_FIREBASE_APP_ID EXPO_PUBLIC_GEOAPIFY_API_KEY EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID"
+          missing=0
+          for name in $names; do
+            value=$(printf '%s' "${!name}" | tr -d '\r\n')
+            if [ -z "$value" ]; then
+              echo "::error::Segredo ausente no repositório: $name"
+              missing=1
+            else
+              printf '%s=%s\n' "$name" "$value" >> .env
+            fi
+          done
+          [ "$missing" = 0 ] || exit 1
+
+      # android/ não é versionado: nasce do app.config.js, igual no computador.
+      - name: Gerar o projeto Android (prebuild)
+        run: npx expo prebuild --platform android --no-install
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Compilar o APK de release (arm64)
+        working-directory: android
+        run: ./gradlew app:assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+
+      - name: Conferir o APK
+        run: |
+          # Sem "cmd | grep -q" nem "cmd | head": o bash do GitHub usa pipefail e
+          # o pipe fechado cedo derrubaria o passo mesmo com o APK certo.
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          ls -l "$apk"
+          unzip -l "$apk" > apk-list.txt
+          grep -q "lib/arm64-v8a/libexpo-gl" apk-list.txt || { echo "::error::APK sem a biblioteca arm64 do expo-gl"; exit 1; }
+          unzip -p "$apk" assets/index.android.bundle > apk-bundle.bin
+          magic=$(xxd -p -l 8 apk-bundle.bin)
+          [ "$magic" = "c61fbc03c103191f" ] || { echo "::error::o bundle não está em bytecode do Hermes (início: $magic)"; exit 1; }
+          rm -f apk-list.txt apk-bundle.bin
+
+      # O repositório é público: o artefato expira em 1 dia. O APK leva as chaves
+      # EXPO_PUBLIC_* embutidas, como qualquer APK do app.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HypeApp-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 1
+          if-no-files-found: error
