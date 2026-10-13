@@ -39,9 +39,11 @@ interface Palette {
 function paletteOf(hex: string): Palette {
   const base = new Color(hex);
   return {
-    root: base.clone().multiplyScalar(0.42),
+    root: base.clone().multiplyScalar(0.5),
     mid: base.clone(),
-    tip: base.clone().lerp(new Color("#FFFFFF"), 0.14),
+    // Ponta só um pouco mais clara: clarear em direção ao branco, no espaço linear, deixa
+    // o cabelo preto cinza.
+    tip: base.clone().multiplyScalar(1.3),
   };
 }
 
@@ -97,8 +99,8 @@ function lockGeometry(palette: Palette, rand: () => number, l: Lock): BufferGeom
     width: (t) => l.width * (0.55 + 0.45 * Math.pow(Math.sin(Math.PI * Math.min(t, 0.999)), 0.45)) * (1 - 0.45 * Math.pow(t, 5)),
     thick: (t) => l.thick * (0.7 + 0.3 * Math.sin(Math.PI * t)) * (1 - 0.35 * Math.pow(t, 4)),
     color,
-    radial: 8,
-    segments: l.drop ? 18 : 12,
+    radial: 6,
+    segments: l.drop ? 16 : 10,
   });
 }
 
@@ -145,13 +147,13 @@ function hairMaterial(kit: Kit, color: string): MeshPhysicalMaterial {
   return kit.track(
     new MeshPhysicalMaterial({
       vertexColors: true,
-      roughness: 0.4,
+      roughness: 0.55,
       metalness: 0,
-      clearcoat: 0.3,
-      clearcoatRoughness: 0.42,
-      sheen: 0.9,
-      sheenRoughness: 0.45,
-      sheenColor: new Color(lighten(color, 0.4)),
+      clearcoat: 0.08,
+      clearcoatRoughness: 0.5,
+      sheen: 0.3,
+      sheenRoughness: 0.6,
+      sheenColor: new Color(lighten(color, 0.12)),
       side: DoubleSide,
     }),
   );
@@ -171,12 +173,12 @@ interface Style {
   quiff?: boolean;
 }
 
-const SHORT: Style = { whorl: [32, 76], nape: -20, sweep: -16, count: 140, outer: 60, width: 0.064 };
+const SHORT: Style = { whorl: [32, 76], nape: -20, sweep: -16, count: 560, outer: 260, width: 0.027 };
 const STYLES: Record<string, Style> = {
   "hs-short": SHORT,
-  "hs-bun": { ...SHORT, count: 110, outer: 36 },
+  "hs-bun": { ...SHORT, count: 430, outer: 160 },
   "hs-quiff": { ...SHORT, whorl: [-8, 70], sweep: 8, quiff: true },
-  "hs-long": { whorl: [26, 78], nape: -30, sweep: -14, count: 150, outer: 60, width: 0.068, drop: 0.36 },
+  "hs-long": { whorl: [26, 78], nape: -30, sweep: -14, count: 640, outer: 300, width: 0.03, drop: 0.9 },
 };
 
 function buildLocks(kit: Kit, color: string, style: Style, covered: boolean) {
@@ -197,14 +199,14 @@ function buildLocks(kit: Kit, color: string, style: Style, covered: boolean) {
     const dropBase = style.drop ? (back ? style.drop : side ? style.drop * 0.78 : 0) : 0;
     return {
       from: [rootTheta, rootPhi],
-      to: [rootTheta + wrap(targetTheta - rootTheta), hairline + (rand() - 0.5) * 3 - layer * 0],
+      to: [rootTheta + wrap(targetTheta - rootTheta), hairline + (rand() - 0.5) * 6 - (rand() < 0.15 ? rand() * 6 : 0)],
       lift: 0.012 + layer * 0.014 + rand() * 0.006,
       bulge: 0.016 + layer * 0.01 + rand() * 0.014,
       width: style.width * (layer ? 0.85 : 1) * (0.85 + rand() * 0.3),
-      thick: 0.02 - layer * 0.003,
+      thick: 0.011 - layer * 0.002,
       swirl: (rand() - 0.5) * 12,
       drop: dropBase ? dropBase * (0.85 + rand() * 0.3) : undefined,
-      dropOut: 0.03 + rand() * 0.03,
+      dropOut: 0.05 + rand() * 0.05,
     };
   };
 

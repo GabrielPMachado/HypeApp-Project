@@ -1,4 +1,5 @@
 import {
+  CapsuleGeometry,
   CatmullRomCurve3,
   CircleGeometry,
   ConeGeometry,
@@ -17,30 +18,34 @@ import { Kit, rad, revolve, roundEnd, roundStart, tube, wrinkle, Z_AXIS } from "
 // Corpo: braços e mãos, roupa de cima, calça e calçado. O boneco tem ~1,8 de
 // altura, pés em y=0, olhando pra +z.
 
+// ---- Proporções ----
+// O torso e os braços são modelados na escala "chibi" original, dentro de
+// kit.upper, que é afinado e esticado até as proporções de gente: ombros com
+// ~0,4 de largura, cintura em 0,9 e base do pescoço em 1,47. Mãos, pernas e
+// calçados já são modelados direto em escala real (coordenadas do mundo).
+export const UPPER_XZ = 0.74;
+export const UPPER_Y = 0.95;
+export const UPPER_OFFSET_Y = 0.349;
+
+const toWorld = (p: Vector3) => new Vector3(p.x * UPPER_XZ, p.y * UPPER_Y + UPPER_OFFSET_Y, p.z * UPPER_XZ);
+const fromWorld = (x: number, y: number, z: number) =>
+  new Vector3(x / UPPER_XZ, (y - UPPER_OFFSET_Y) / UPPER_Y, z / UPPER_XZ);
+
 // ---- Braços ----
 // Com casaco (que tem bolso) a mão some no bolso da frente, como no boneco de
-// referência; nas demais roupas os braços caem soltos ao lado do corpo, com as
-// mãos aparecendo.
+// referência; nas demais roupas os braços caem soltos ao lado do corpo, com o
+// cotovelo levemente dobrado e as mãos aparecendo.
 type Pose = "pockets" | "relaxed";
 
 const POCKET_TOPS = ["tp-puffer"];
 
+// Ombro, cotovelo e pulso em coordenadas do mundo (x pro lado de fora).
 function armPoints(side: -1 | 1, pose: Pose): Vector3[] {
-  return pose === "pockets"
-    ? [
-        new Vector3(side * 0.2, 1.07, 0),
-        new Vector3(side * 0.315, 0.99, -0.005),
-        new Vector3(side * 0.352, 0.86, 0.02),
-        new Vector3(side * 0.3, 0.74, 0.085),
-        new Vector3(side * 0.205, 0.69, 0.125),
-      ]
-    : [
-        new Vector3(side * 0.215, 1.07, 0),
-        new Vector3(side * 0.302, 1.0, -0.005),
-        new Vector3(side * 0.335, 0.86, 0),
-        new Vector3(side * 0.342, 0.74, 0.015),
-        new Vector3(side * 0.34, 0.66, 0.03),
-      ];
+  const world: [number, number, number][] =
+    pose === "pockets"
+      ? [[0.215, 1.405, 0], [0.255, 1.255, -0.012], [0.265, 1.12, -0.02], [0.215, 1.02, 0.07], [0.15, 0.975, 0.125]]
+      : [[0.215, 1.405, 0], [0.235, 1.27, -0.01], [0.247, 1.13, -0.016], [0.243, 1.0, 0], [0.235, 0.885, 0.035]];
+  return world.map(([x, y, z]) => fromWorld(side * x, y, z));
 }
 
 interface Sleeve {
@@ -53,17 +58,26 @@ interface Sleeve {
   roughness?: number;
 }
 
-// Mão: palma alongada e polegar, pendurada no pulso.
-function buildHand(kit: Kit, skin: string, at: Vector3, side: -1 | 1) {
+// Mão de gente: palma, quatro dedos e polegar, com a palma virada pra coxa (o
+// polegar aponta pra frente), como numa mão relaxada. wrist em coordenadas do mundo.
+function buildHand(kit: Kit, skin: string, wrist: Vector3, side: -1 | 1) {
   const material = kit.skin(skin);
   const hand = new Group();
-  hand.position.copy(at);
+  hand.position.copy(wrist);
+  hand.rotation.set(rad(-6), side * rad(-18), side * rad(-2));
   kit.root.add(hand);
-  const palm = kit.mesh(hand, new SphereGeometry(1, 20, 16), material, 0, -0.058, 0.004);
-  palm.scale.set(0.034, 0.068, 0.024);
-  const thumb = kit.mesh(hand, new SphereGeometry(1, 14, 10), material, side * -0.028, -0.04, 0.012);
-  thumb.scale.set(0.011, 0.032, 0.012);
-  thumb.rotation.z = side * rad(-10);
+
+  // Fecha a ponta aberta do tubo do antebraço e funde o pulso com a palma.
+  kit.mesh(hand, new SphereGeometry(0.034, 18, 14), material, 0, 0, 0);
+  kit.mesh(hand, new RoundedBoxGeometry(0.03, 0.11, 0.078, 3, 0.012), material, 0, -0.045, 0);
+  const lengths = [0.062, 0.072, 0.068, 0.054];
+  const fingerZ = [0.027, 0.009, -0.009, -0.027];
+  lengths.forEach((length, i) => {
+    const finger = kit.mesh(hand, new CapsuleGeometry(0.0088, length - 0.0176, 4, 8), material, 0, -0.092 - length / 2, fingerZ[i]);
+    finger.rotation.x = rad(-5 - i * 2);
+  });
+  const thumb = kit.mesh(hand, new CapsuleGeometry(0.0098, 0.04, 4, 8), material, -side * 0.012, -0.046, 0.05);
+  thumb.rotation.x = rad(-28);
 }
 
 function buildArms(kit: Kit, skin: string, sleeve: Sleeve, pose: Pose) {
@@ -73,27 +87,26 @@ function buildArms(kit: Kit, skin: string, sleeve: Sleeve, pose: Pose) {
     const points = armPoints(side, pose);
     const end = points[points.length - 1];
     if (sleeve.reach < 1) {
-      kit.mesh(kit.root, tube(points, (t) => 0.052 * (1 - t * 0.16)), skinMat);
+      kit.mesh(kit.upper, tube(points, (t) => 0.052 * (1 - t * 0.16)), skinMat);
     }
     const bump = (t: number) =>
       sleeve.puffy ? 1 + 0.1 * Math.pow(Math.abs(Math.sin(t * Math.PI * 4.4)), 0.55) : 1 + 0.03 * Math.sin(t * Math.PI);
-    kit.mesh(kit.root, tube(points, (t) => sleeve.radius * bump(t) * (1.04 - t * 0.2), 0, sleeve.reach, 22, 56), cloth);
-    if (sleeve.reach >= 1) {
-      kit.mesh(kit.root, new SphereGeometry(sleeve.radius * 1.02, 24, 18), cloth, points[0].x * 1.02, points[0].y, points[0].z);
-    }
+    kit.mesh(kit.upper, tube(points, (t) => sleeve.radius * bump(t) * (1.04 - t * 0.2), 0, sleeve.reach, 22, 56), cloth);
+    // ombro arredondado (deltoide): sem ele a manga sai do tronco como uma asa
+    kit.mesh(kit.upper, new SphereGeometry(sleeve.radius * 1.08, 24, 18), cloth, points[0].x * 1.0, points[0].y, points[0].z);
 
     if (sleeve.reach >= 1 && sleeve.cuff && pose === "relaxed") {
       const cuff = kit.std(sleeve.cuff, 0.85);
-      kit.mesh(kit.root, tube(points, (t) => sleeve.radius * 0.78 * (1.04 - t * 0.2), 0.9, 1, 20, 8), cuff);
-      kit.mesh(kit.root, new SphereGeometry(sleeve.radius * 0.66, 20, 14), cuff, end.x, end.y, end.z);
+      kit.mesh(kit.upper, tube(points, (t) => sleeve.radius * 0.78 * (1.04 - t * 0.2), 0.9, 1, 20, 8), cuff);
+      kit.mesh(kit.upper, new SphereGeometry(sleeve.radius * 0.66, 20, 14), cuff, end.x, end.y, end.z);
     } else if (sleeve.reach < 1) {
       // barra da manga curta: um anel de tecido perpendicular ao braço
       const curve = new CatmullRomCurve3(points, false, "catmullrom", 0.5);
       const p = curve.getPointAt(sleeve.reach);
-      const hem = kit.mesh(kit.root, new TorusGeometry(sleeve.radius * 0.93, sleeve.radius * 0.1, 10, 28), cloth, p.x, p.y, p.z);
+      const hem = kit.mesh(kit.upper, new TorusGeometry(sleeve.radius * 0.93, sleeve.radius * 0.1, 10, 28), cloth, p.x, p.y, p.z);
       hem.quaternion.setFromUnitVectors(Z_AXIS, curve.getTangentAt(sleeve.reach).normalize());
     }
-    if (pose === "relaxed") buildHand(kit, skin, end, side);
+    if (pose === "relaxed") buildHand(kit, skin, toWorld(end), side);
   }
 }
 
@@ -119,7 +132,7 @@ function buildTorso(kit: Kit, style: TopStyle) {
     return half * (1 + 0.04 * (1 - u)) * waist * chest * slope * roundStart(u, 0.05);
   }, height);
   if (!style.puffy) wrinkle(geometry, 0.0035, half * 40);
-  const torso = kit.mesh(kit.root, geometry, kit.std(style.color, style.roughness ?? 0.72), 0, hem, 0);
+  const torso = kit.mesh(kit.upper, geometry, kit.std(style.color, style.roughness ?? 0.72), 0, hem, 0);
   torso.scale.set(1, 1, 0.78);
   return torso;
 }
@@ -129,7 +142,7 @@ function buildTop(kit: Kit, id: string, skin: string) {
   const dark = darken(color, 0.4);
   const pose: Pose = POCKET_TOPS.includes(id) ? "pockets" : "relaxed";
   const bar = (w: number, h: number, d: number, material: Material, x: number, y: number, z: number, roll = 0) => {
-    const mesh = kit.mesh(kit.root, new RoundedBoxGeometry(w, h, d, 3, Math.min(w, h, d) * 0.3), material, x, y, z);
+    const mesh = kit.mesh(kit.upper, new RoundedBoxGeometry(w, h, d, 3, Math.min(w, h, d) * 0.3), material, x, y, z);
     mesh.rotation.z = roll;
     return mesh;
   };
@@ -139,7 +152,7 @@ function buildTop(kit: Kit, id: string, skin: string) {
       buildTorso(kit, { color, half: 0.285, hem: 0.58, height: 0.6, puffy: true, roughness: 0.55 });
       buildArms(kit, skin, { color, radius: 0.074, reach: 1, puffy: true, cuff: "#B9B4AE", roughness: 0.55 }, pose);
       // gola alta de tricô e capuz de pelo em volta do pescoço (em V na frente)
-      const knit = kit.mesh(kit.root, new TorusGeometry(0.1, 0.04, 14, 36), kit.std("#D8D1C7", 0.9), 0, 1.13, 0);
+      const knit = kit.mesh(kit.upper, new TorusGeometry(0.1, 0.04, 14, 36), kit.std("#D8D1C7", 0.9), 0, 1.13, 0);
       knit.rotation.x = Math.PI / 2;
       const fur = kit.std("#F2E8D8", 1);
       for (const side of [-1, 1]) {
@@ -148,18 +161,18 @@ function buildTop(kit: Kit, id: string, skin: string) {
           const x = side * (0.185 - t * 0.17);
           const y = 1.17 - Math.pow(t, 1.2) * 0.15;
           const z = t * 0.2;
-          kit.mesh(kit.root, new SphereGeometry(0.052 - t * 0.011, 16, 12), fur, x, y, z);
+          kit.mesh(kit.upper, new SphereGeometry(0.052 - t * 0.011, 16, 12), fur, x, y, z);
         }
       }
       for (let i = 0; i < 7; i++) {
         const angle = rad(-112 + i * 37);
-        kit.mesh(kit.root, new SphereGeometry(0.05, 14, 10), fur, Math.sin(angle) * 0.185, 1.17, -Math.cos(angle) * 0.1 - 0.02);
+        kit.mesh(kit.upper, new SphereGeometry(0.05, 14, 10), fur, Math.sin(angle) * 0.185, 1.17, -Math.cos(angle) * 0.1 - 0.02);
       }
       // capuz caído nas costas: aba de tecido atrás do pescoço, sob o pelo
-      kit.mesh(kit.root, new SphereGeometry(1, 28, 20), kit.std(color, 0.55), 0, 1.115, -0.085).scale.set(0.205, 0.1, 0.15);
+      kit.mesh(kit.upper, new SphereGeometry(1, 28, 20), kit.std(color, 0.55), 0, 1.115, -0.085).scale.set(0.205, 0.1, 0.15);
       // zíper, botões de pressão e bolsos
       bar(0.014, 0.4, 0.02, kit.std(dark, 0.6), 0, 0.85, 0.25);
-      [0.98, 0.86, 0.74].forEach((y) => kit.mesh(kit.root, new SphereGeometry(0.02, 14, 10), kit.gloss("#6E3418", 0.35, 0.6), 0, y, 0.252));
+      [0.98, 0.86, 0.74].forEach((y) => kit.mesh(kit.upper, new SphereGeometry(0.02, 14, 10), kit.gloss("#6E3418", 0.35, 0.6), 0, y, 0.252));
       for (const side of [-1, 1]) {
         bar(0.02, 0.15, 0.03, kit.std(dark, 0.6), side * 0.16, 0.76, 0.225, side * -0.35);
       }
@@ -170,19 +183,19 @@ function buildTop(kit: Kit, id: string, skin: string) {
     case "tp-hoodie-blue": {
       buildTorso(kit, { color, half: 0.27, hem: 0.6, height: 0.58 });
       buildArms(kit, skin, { color, radius: 0.075, reach: 1, cuff: darken(color, 0.22) }, pose);
-      const hood = kit.mesh(kit.root, new TorusGeometry(0.16, 0.065, 16, 32), kit.std(darken(color, 0.28), 0.8), 0, 1.13, -0.06);
+      const hood = kit.mesh(kit.upper, new TorusGeometry(0.16, 0.065, 16, 32), kit.std(darken(color, 0.28), 0.8), 0, 1.13, -0.06);
       hood.rotation.x = rad(60);
       bar(0.34, 0.14, 0.05, kit.std(darken(color, 0.06), 0.72), 0, 0.8, 0.205);
       for (const side of [-1, 1]) {
-        kit.mesh(kit.root, new CylinderGeometry(0.008, 0.008, 0.2, 8), kit.std("#F2F2F7", 0.6), side * 0.05, 1.03, 0.2);
+        kit.mesh(kit.upper, new CylinderGeometry(0.008, 0.008, 0.2, 8), kit.std("#F2F2F7", 0.6), side * 0.05, 1.03, 0.2);
       }
       break;
     }
     case "tp-jacket": {
       buildTorso(kit, { color, half: 0.265, hem: 0.6, height: 0.58 });
       buildArms(kit, skin, { color, radius: 0.076, reach: 1, cuff: "#34343E" }, pose);
-      kit.mesh(kit.root, new CylinderGeometry(0.271, 0.271, 0.04, 44, 1, true), kit.std("#34343E", 0.8), 0, 0.625, 0).scale.set(1, 1, 0.78);
-      const collar = kit.mesh(kit.root, new TorusGeometry(0.115, 0.03, 12, 32), kit.std("#3C3C46", 0.7), 0, 1.14, 0.0);
+      kit.mesh(kit.upper, new CylinderGeometry(0.271, 0.271, 0.04, 44, 1, true), kit.std("#34343E", 0.8), 0, 0.625, 0).scale.set(1, 1, 0.78);
+      const collar = kit.mesh(kit.upper, new TorusGeometry(0.115, 0.03, 12, 32), kit.std("#3C3C46", 0.7), 0, 1.14, 0.0);
       collar.rotation.x = Math.PI / 2;
       bar(0.014, 0.44, 0.02, kit.gloss("#B0B0BC", 0.3, 0.6), 0, 0.9, 0.205);
       break;
@@ -191,7 +204,7 @@ function buildTop(kit: Kit, id: string, skin: string) {
       buildTorso(kit, { color, half: 0.262, hem: 0.6, height: 0.58 });
       buildArms(kit, skin, { color, radius: 0.072, reach: 1, cuff: "#E3E3EA" }, pose);
       bar(0.14, 0.05, 0.05, kit.std("#FFFFFF", 0.7), 0, 1.13, 0.14, 0.4);
-      [1.02, 0.92, 0.82, 0.72].forEach((y) => kit.mesh(kit.root, new SphereGeometry(0.014, 10, 8), kit.std("#B5B5BF", 0.4), 0, y, 0.205));
+      [1.02, 0.92, 0.82, 0.72].forEach((y) => kit.mesh(kit.upper, new SphereGeometry(0.014, 10, 8), kit.std("#B5B5BF", 0.4), 0, y, 0.205));
       break;
     case "tp-blazer":
     case "tp-tux": {
@@ -204,13 +217,13 @@ function buildTop(kit: Kit, id: string, skin: string) {
       if (tux) {
         const bow = kit.gloss("#BC3F50", 0.4, 0.5);
         for (const side of [-1, 1]) {
-          const wing = kit.mesh(kit.root, new ConeGeometry(0.05, 0.085, 4), bow, side * 0.05, 1.05, 0.215);
+          const wing = kit.mesh(kit.upper, new ConeGeometry(0.05, 0.085, 4), bow, side * 0.05, 1.05, 0.215);
           wing.rotation.z = side * -Math.PI / 2;
         }
-        kit.mesh(kit.root, new SphereGeometry(0.024, 14, 10), kit.gloss("#8E2E3A", 0.4, 0.5), 0, 1.05, 0.215);
+        kit.mesh(kit.upper, new SphereGeometry(0.024, 14, 10), kit.gloss("#8E2E3A", 0.4, 0.5), 0, 1.05, 0.215);
       } else {
         bar(0.045, 0.012, 0.02, kit.std("#F2F2F7", 0.7), 0.1, 0.9, 0.222);
-        kit.mesh(kit.root, new SphereGeometry(0.014, 10, 8), kit.std("#8090B4", 0.4), 0, 0.82, 0.222);
+        kit.mesh(kit.upper, new SphereGeometry(0.014, 10, 8), kit.std("#8090B4", 0.4), 0, 0.82, 0.222);
       }
       break;
     }
@@ -222,22 +235,26 @@ function buildTop(kit: Kit, id: string, skin: string) {
 }
 
 // ---- Calças ----
-// Perna: afina no tornozelo, panturrilha e joelho sutis, coxa cheia, com
-// dobras suaves no tecido. Vai de y=0.2 (tornozelo) até 0.64 (sob a barra).
-function legGeometry(side: number) {
-  // raio ao longo da perna: [posição 0..1 do tornozelo ao quadril, raio]
-  const stops: [number, number][] = [[0, 0.084], [0.12, 0.088], [0.28, 0.097], [0.5, 0.09], [0.75, 0.102], [1, 0.112]];
-  const profile = (u: number) => {
-    for (let i = 1; i < stops.length; i++) {
-      if (u <= stops[i][0]) {
-        const t = (u - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0]);
-        const eased = t * t * (3 - 2 * t);
-        return stops[i - 1][1] + (stops[i][1] - stops[i - 1][1]) * eased;
-      }
+// Pernas em escala real: do tornozelo (y=0,1) à virilha (y=0,86), com panturrilha,
+// joelho e coxa, e dobras leves no tecido.
+const ANKLE_Y = 0.1;
+const CROTCH_Y = 0.86;
+const LEG_X = 0.085;
+
+function legRadius(u: number): number {
+  const stops: [number, number][] = [[0, 0.052], [0.1, 0.054], [0.27, 0.063], [0.46, 0.057], [0.53, 0.058], [0.76, 0.076], [1, 0.088]];
+  for (let i = 1; i < stops.length; i++) {
+    if (u <= stops[i][0]) {
+      const t = (u - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0]);
+      const eased = t * t * (3 - 2 * t);
+      return stops[i - 1][1] + (stops[i][1] - stops[i - 1][1]) * eased;
     }
-    return stops[stops.length - 1][1];
-  };
-  return wrinkle(revolve(profile, 0.44, 40, 32), 0.003, side * 3, 30);
+  }
+  return stops[stops.length - 1][1];
+}
+
+function legGeometry(side: number, grow: number) {
+  return wrinkle(revolve((u) => legRadius(u) + grow, CROTCH_Y - ANKLE_Y, 48, 32), 0.0022, side * 3, 38);
 }
 
 function buildBottom(kit: Kit, id: string, skin: string) {
@@ -246,31 +263,38 @@ function buildBottom(kit: Kit, id: string, skin: string) {
   const skinMat = kit.skin(skin);
 
   for (const side of [-1, 1]) {
-    const x = side * 0.105;
+    const x = side * LEG_X;
     if (id === "bt-shorts") {
-      kit.mesh(kit.root, new CylinderGeometry(0.108, 0.118, 0.27, 28), cloth, x, 0.47, 0);
-      kit.mesh(kit.root, new CylinderGeometry(0.062, 0.052, 0.3, 24), skinMat, x, 0.27, 0);
-      const hem = kit.mesh(kit.root, new TorusGeometry(0.118, 0.009, 8, 28), kit.std(darken(color, 0.15), 0.8), x, 0.335, 0);
+      kit.mesh(kit.root, legGeometry(side, 0), skinMat, x, ANKLE_Y, 0);
+      // bermuda: tubo de tecido da virilha até um pouco acima do joelho
+      kit.mesh(kit.root, new CylinderGeometry(0.1, 0.108, 0.34, 28), cloth, x, 0.7, 0);
+      const hem = kit.mesh(kit.root, new TorusGeometry(0.1, 0.008, 8, 28), kit.std(darken(color, 0.15), 0.8), x, 0.53, 0);
       hem.rotation.x = Math.PI / 2;
       continue;
     }
-    kit.mesh(kit.root, legGeometry(side), cloth, x, 0.2, 0);
+    kit.mesh(kit.root, legGeometry(side, 0.007), cloth, x, ANKLE_Y, 0);
     if (id === "bt-cargo") {
-      kit.mesh(kit.root, new RoundedBoxGeometry(0.03, 0.1, 0.085, 2, 0.01), kit.std(darken(color, 0.12), 0.85), side * 0.205, 0.42, 0.01);
+      kit.mesh(kit.root, new RoundedBoxGeometry(0.024, 0.11, 0.08, 2, 0.008), kit.std(darken(color, 0.12), 0.85), side * (LEG_X + 0.073), 0.62, 0);
+    }
+    if (id === "bt-slacks") {
+      kit.mesh(kit.root, new RoundedBoxGeometry(0.004, 0.56, 0.004, 1, 0.001), kit.std(lighten(color, 0.3), 0.8), x, 0.5, legRadius(0.5) + 0.008);
     }
     if (id === "bt-jeans") {
       // barra dobrada mostrando o avesso mais claro
-      kit.mesh(kit.root, new CylinderGeometry(0.099, 0.095, 0.075, 28), kit.std(lighten(color, 0.42), 0.85), x, 0.235, 0);
-      const edge = kit.mesh(kit.root, new TorusGeometry(0.099, 0.01, 8, 28), kit.std(darken(color, 0.1), 0.85), x, 0.272, 0);
+      kit.mesh(kit.root, new CylinderGeometry(0.066, 0.066, 0.07, 28), kit.std(lighten(color, 0.42), 0.85), x, ANKLE_Y + 0.07, 0);
+      const edge = kit.mesh(kit.root, new TorusGeometry(0.066, 0.007, 8, 28), kit.std(darken(color, 0.1), 0.85), x, ANKLE_Y + 0.105, 0);
       edge.rotation.x = Math.PI / 2;
     }
   }
   // quadril, escondido sob a barra da roupa
-  kit.mesh(kit.root, new CylinderGeometry(0.235, 0.22, 0.14, 40), cloth, 0, 0.6, 0).scale.set(1, 1, 0.78);
+  kit.mesh(kit.root, new CylinderGeometry(0.17, 0.176, 0.2, 40), cloth, 0, 0.93, 0).scale.set(1, 1, 0.72);
 }
 
 // ---- Calçados ----
 function buildShoes(kit: Kit, id: string) {
+  const feet = new Group();
+  feet.scale.setScalar(0.86);
+  kit.root.add(feet);
   const color = SHOE_COLORS[id] ?? SHOE_COLORS[DEFAULT_LOOK.shoes];
   const boots = id === "sh-boots";
   const dress = id === "sh-dress";
@@ -283,7 +307,7 @@ function buildShoes(kit: Kit, id: string) {
     const shoe = new Group();
     shoe.position.set(side * 0.108, 0, 0);
     shoe.rotation.y = side * rad(5);
-    kit.root.add(shoe);
+    feet.add(shoe);
 
     const width = dress ? 0.14 : 0.16;
     const length = dress ? 0.29 : boots ? 0.27 : 0.28;
@@ -312,12 +336,14 @@ function buildShoes(kit: Kit, id: string) {
 
 // Sombra suave no chão.
 function buildFloorShadow(kit: Kit) {
-  const shadow = kit.mesh(kit.root, new CircleGeometry(0.6, 40), kit.soft("#000000", 0.55), 0, 0.003, 0.03);
+  const shadow = kit.mesh(kit.root, new CircleGeometry(0.5, 40), kit.soft("#000000", 0.55), 0, 0.003, 0.03);
   shadow.rotation.x = -Math.PI / 2;
   shadow.scale.set(1, 0.75, 1);
 }
 
 export function buildBody(kit: Kit, look: { top: string; bottom: string; shoes: string }, skin: string) {
+  kit.upper.scale.set(UPPER_XZ, UPPER_Y, UPPER_XZ);
+  kit.upper.position.y = UPPER_OFFSET_Y;
   buildFloorShadow(kit);
   buildShoes(kit, look.shoes);
   buildBottom(kit, look.bottom, skin);

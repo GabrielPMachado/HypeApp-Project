@@ -85,7 +85,7 @@ export function ProfileHero({
   return (
     <View style={styles.hero}>
       <View style={styles.avatarWrap}>
-        <UserAvatar name={name} look={look} frameId={frameId} size={264} view="full" interactive paused={paused} glow />
+        <UserAvatar name={name} look={look} frameId={frameId} size={340} view="full" interactive paused={paused} glow />
         {level !== undefined && (
           <View style={styles.levelChip} accessible accessibilityLabel={`Nível ${level}`}>
             <Text style={styles.levelChipText}>NÍV. {level}</Text>

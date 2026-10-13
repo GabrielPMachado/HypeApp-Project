@@ -215,7 +215,7 @@ export function EditProfileModal({ visible, onClose, onOpenStore }: EditProfileM
 
         {/* Prévia fixa: fica à vista enquanto a pessoa rola e escolhe. */}
         <View style={styles.previewBar}>
-          <UserAvatar name={name} look={look} frameId={frameId} size={168} view="full" interactive glow />
+          <UserAvatar name={name} look={look} frameId={frameId} size={200} view="full" interactive glow />
           <View style={styles.previewText}>
             <Text style={styles.previewName} numberOfLines={1}>
               {trimmedName || "Seu nome"}

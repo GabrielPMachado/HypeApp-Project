@@ -52,6 +52,9 @@ export function softDiscTexture(size = 64): DataTexture {
 export class Kit {
   readonly root = new Group();
   readonly head = new Group();
+  // Torso e braços: modelados na escala original e depois afinados/esticados até as
+  // proporções de gente (ver body.ts). O resto do corpo fica direto em kit.root.
+  readonly upper = new Group();
   private readonly geometries: BufferGeometry[] = [];
   private readonly materials = new Map<string, Material>();
   private layer = 0;
@@ -59,6 +62,7 @@ export class Kit {
 
   constructor() {
     this.root.add(this.head);
+    this.root.add(this.upper);
   }
 
   std(color: string, roughness = 0.7): MeshStandardMaterial {

@@ -4,7 +4,7 @@ import { darken, DEFAULT_LOOK, EYE_COLORS, HAIR_COLORS, SKIN_COLORS, type Look }
 import { buildAccessory } from "@/three/accessories";
 import { buildBody } from "@/three/body";
 import { buildHair, NATURAL_HAIR } from "@/three/hair";
-import { buildHead, HEAD_SCALE, NECK_TOP } from "@/three/head";
+import { buildHead, HEAD_OFFSET_Y, HEAD_SCALE } from "@/three/head";
 import { Kit } from "@/three/kit";
 
 // Modelo 3D do personagem: geometria procedural (esferas, cilindros, tubos)
@@ -34,10 +34,10 @@ export function buildCharacterModel(look: Look): CharacterModel {
   const iris = EYE_COLORS[look.eyes] ?? EYE_COLORS[DEFAULT_LOOK.eyes];
   const brow = NATURAL_HAIR.includes(look.hairColor) ? darken(hair, 0.2) : "#3B2A22";
 
-  // A cabeça encolhe em torno da base do pescoço (a escala não mexe na posição
-  // do pescoço, só do crânio pra cima).
+  // A cabeça é encolhida até a proporção de gente e posicionada com o queixo
+  // logo acima dos ombros.
   kit.head.scale.setScalar(HEAD_SCALE);
-  kit.head.position.set(0, NECK_TOP * (1 - HEAD_SCALE), 0);
+  kit.head.position.set(0, HEAD_OFFSET_Y, 0);
 
   buildBody(kit, look, skin);
   buildHead(kit, { skin, iris, brow }, look.mood);

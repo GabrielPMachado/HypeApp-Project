@@ -26,7 +26,7 @@ interface UserAvatarProps {
 }
 
 // Largura do cartão de corpo inteiro em relação à altura.
-const FULL_ASPECT = 0.62;
+const FULL_ASPECT = 0.56;
 
 // Avatar do usuário: o personagem montado por ele (data/character.ts) sobre um
 // fundo tingido pela cor da moldura equipada, dentro da moldura. Id de moldura

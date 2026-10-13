@@ -2,6 +2,7 @@ import {
   BufferGeometry,
   CircleGeometry,
   Color,
+  CylinderGeometry,
   Float32BufferAttribute,
   Group,
   MeshPhysicalMaterial,
@@ -24,8 +25,13 @@ import { Kit, rad, tube, Z_AXIS } from "@/three/kit";
 
 export const HEAD_C = new Vector3(0, 1.5, 0);
 export const HEAD_R = new Vector3(0.345, 0.315, 0.335);
-export const NECK_TOP = 1.22;
-export const HEAD_SCALE = 0.9;
+// Cabeça com ~1/6,5 da altura (a de um desenho teria 1/3): é o que mais pesa pra o
+// boneco parecer gente e não brinquedo.
+export const HEAD_SCALE = 0.44;
+// Altura do queixo no mundo; a cabeça é posicionada pra o queixo cair aqui.
+export const CHIN_Y = 1.54;
+const CHIN_LOCAL_Y = HEAD_C.y - HEAD_R.y * 1.05;
+export const HEAD_OFFSET_Y = CHIN_Y - HEAD_SCALE * CHIN_LOCAL_Y;
 
 // Forma da cabeça: uma esfera moldada — bochechas cheias logo abaixo do meio,
 // queixo pequeno e arredondado, alto levemente afunilado. Recebe um ponto da
@@ -102,8 +108,8 @@ export function buildHead(kit: Kit, colors: FaceColors, mood: string) {
   const skin = kit.skin(colors.skin);
   kit.mesh(kit.head, skull, skin);
 
-  // Pescoço (fora do grupo da cabeça, que encolhe)
-  kit.mesh(kit.root, new SphereGeometry(1, 24, 16), kit.skin(darken(colors.skin, 0.1)), 0, 1.16, 0).scale.set(0.085, 0.12, 0.082);
+  // Pescoço (fora do grupo da cabeça, que encolhe): do ombro ao queixo.
+  kit.mesh(kit.root, new CylinderGeometry(0.05, 0.06, 0.2, 28), kit.skin(darken(colors.skin, 0.08)), 0, 1.47, 0);
 
   // Orelhas
   for (const side of [-1, 1]) {
@@ -125,8 +131,8 @@ export function buildHead(kit: Kit, colors: FaceColors, mood: string) {
     kit.mesh(stuck(kit, side * rad(25.5), rad(-5), 0.0015), new CircleGeometry(0.13, 32), kit.soft(shadow, 0.11));
   }
   kit.mesh(stuck(kit, 0, rad(-40), 0.002), new CircleGeometry(0.04, 24), kit.soft(shadow, 0.18));
-  const neckShadow = kit.mesh(kit.root, new CircleGeometry(0.09, 32), kit.soft("#000000", 0.3), 0, 1.15, 0.085);
-  neckShadow.scale.set(1.15, 0.9, 1);
+  const neckShadow = kit.mesh(kit.root, new CircleGeometry(0.07, 32), kit.soft("#000000", 0.3), 0, 1.49, 0.048);
+  neckShadow.scale.set(1.1, 0.9, 1);
 
   // Bochechas coradas
   const blush = rosy(colors.skin, 0.7);
@@ -241,7 +247,7 @@ function openEye(kit: Kit, side: -1 | 1, colors: FaceColors, halfLid: boolean) {
 
   kit.mesh(eye, new SphereGeometry(EYE_R, 40, 30), kit.std("#F5F0EC", 0.2));
   const irisMaterial = kit.track(new MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0 }));
-  kit.mesh(eye, irisGeometry(EYE_R * 1.004, rad(33), colors.iris), irisMaterial);
+  kit.mesh(eye, irisGeometry(EYE_R * 1.004, rad(28), colors.iris), irisMaterial);
 
   // Reflexos: um grande no alto (de onde vem a luz) e um pequeno embaixo.
   placeOnSphere(kit, eye, new Vector3(-0.2, 0.22, 0.95), 1, 0.0125);
@@ -256,9 +262,9 @@ function openEye(kit: Kit, side: -1 | 1, colors: FaceColors, halfLid: boolean) {
   cornea.renderOrder = 2;
 
   // Pálpebras: a de cima cobre um pedaço do topo da íris, a de baixo encosta embaixo.
-  const upperAngle = rad(halfLid ? 52 : 41);
+  const upperAngle = rad(halfLid ? 54 : 44);
   const upperTilt = rad(18);
-  const lowerAngle = rad(45);
+  const lowerAngle = rad(47);
   const lowerTilt = rad(10);
   const lidMaterial = kit.skin(colors.skin);
   kit.mesh(eye, lidGeometry(upperAngle, upperTilt, true), lidMaterial);

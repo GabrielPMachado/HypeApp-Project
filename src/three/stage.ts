@@ -6,11 +6,11 @@ import { softDiscTexture } from "@/three/kit";
 
 // Enquadramentos da câmera: pra onde ela olha e a que distância (fov fixo).
 const CAMERA: Record<AvatarView, { target: [number, number, number]; distance: number; pitch: number }> = {
-  full: { target: [0, 0.92, 0], distance: 3.95, pitch: 0.05 },
-  bust: { target: [0, 1.38, 0], distance: 2.45, pitch: 0.02 },
-  top: { target: [0, 0.9, 0.02], distance: 2.1, pitch: 0.05 },
-  bottom: { target: [0, 0.36, 0.02], distance: 2.05, pitch: 0.06 },
-  shoes: { target: [0, 0.11, 0.05], distance: 1.5, pitch: 0.3 },
+  full: { target: [0, 0.93, 0], distance: 4.15, pitch: 0.04 },
+  bust: { target: [0, 1.6, 0], distance: 1.3, pitch: 0.02 },
+  top: { target: [0, 1.15, 0.02], distance: 2.0, pitch: 0.05 },
+  bottom: { target: [0, 0.5, 0.02], distance: 2.3, pitch: 0.06 },
+  shoes: { target: [0, 0.12, 0.05], distance: 1.3, pitch: 0.3 },
 };
 
 const FOV = 28;
