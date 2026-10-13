@@ -1,10 +1,11 @@
 import { GLView, type ExpoWebGLRenderingContext } from "expo-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PanResponder, StyleSheet, Text, View } from "react-native";
-import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
+import type { WebGLRenderer } from "three";
 
 import { CharacterAvatar } from "@/components/CharacterAvatar";
 import { LOOK_SLOTS, type AvatarView, type Look } from "@/data/character";
+import { createRenderer } from "@/three/createRenderer";
 import { CharacterStage } from "@/three/stage";
 
 interface Character3DProps {
@@ -74,24 +75,7 @@ export function Character3D({ look, width, height, view = "full", frameColor, in
 
   const onContextCreate = (gl: ExpoWebGLRenderingContext) => {
     try {
-      const renderer = new WebGLRenderer({
-        // three só precisa destes pedaços do "canvas"; o resto é do expo-gl.
-        canvas: {
-          width: gl.drawingBufferWidth,
-          height: gl.drawingBufferHeight,
-          style: {},
-          addEventListener: () => {},
-          removeEventListener: () => {},
-          clientWidth: gl.drawingBufferWidth,
-          clientHeight: gl.drawingBufferHeight,
-        } as unknown as HTMLCanvasElement,
-        context: gl,
-        antialias: true,
-      });
-      renderer.setPixelRatio(1);
-      renderer.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight, false);
-      renderer.outputColorSpace = SRGBColorSpace;
-      renderer.toneMapping = ACESFilmicToneMapping;
+      const renderer = createRenderer(gl);
 
       const stage = new CharacterStage();
       const current = latest.current;
@@ -205,7 +189,7 @@ export function Character3D({ look, width, height, view = "full", frameColor, in
     return (
       <View style={{ width, height }}>
         <CharacterAvatar look={look} view={view} size={height} />
-        <Text style={styles.reason} numberOfLines={3}>
+        <Text style={styles.reason} numberOfLines={6}>
           3D indisponível: {failed}
         </Text>
       </View>
@@ -228,7 +212,7 @@ const styles = StyleSheet.create({
     left: 4,
     right: 4,
     bottom: 2,
-    fontSize: 8,
+    fontSize: 9,
     color: "#FF9E9E",
     textAlign: "center",
   },
@@ -236,7 +220,7 @@ const styles = StyleSheet.create({
 
 function describe(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
-  return text.replace(/s+/g, " ").slice(0, 140);
+  return text.replace(/s+/g, " ").slice(0, 220);
 }
 
 // A cena sumiu (contexto criado, mas nada desenhado)? Lê um pixel do meio do

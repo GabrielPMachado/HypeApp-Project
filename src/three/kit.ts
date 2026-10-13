@@ -6,6 +6,7 @@ import {
   DataTexture,
   DoubleSide,
   Float32BufferAttribute,
+  LinearFilter,
   Group,
   LatheGeometry,
   Material,
@@ -38,6 +39,9 @@ export function softDiscTexture(size = 64): DataTexture {
     }
   }
   const texture = new DataTexture(data, size, size, RGBAFormat);
+  // O padrão do DataTexture é NearestFilter (pixelado); a borda esmaecida precisa de filtro linear.
+  texture.minFilter = LinearFilter;
+  texture.magFilter = LinearFilter;
   texture.needsUpdate = true;
   return texture;
 }
